@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "activity-agent"
+version = "0.1.0"
+description = "Reproducible regional activity decline detection and review pipeline"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.2,<4", "numpy>=1.26,<3", "pyarrow>=16,<27",
+  "scikit-learn>=1.5,<2", "streamlit>=1.40,<2", "pyproj>=3.6,<4",
+  "plotly>=5.20,<8"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+activity-agent = "activity_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["activity_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

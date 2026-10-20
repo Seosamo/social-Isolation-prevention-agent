@@ -1,0 +1,44 @@
+{
+  "data_dir": "data",
+  "output_dir": "artifacts",
+  "baseline_months": 2,
+  "minimum_coverage": 0.8,
+  "suspect_decline": 0.2,
+  "stable_change": 0.1,
+  "detector": "rule",
+  "model_path": "artifacts/models/logistic.pkl",
+  "mapping_file": "references/block_regions.csv",
+  "industry_file": "references/industries.csv",
+  "resources_file": "references/resources.csv",
+  "source_crs": null,
+  "verified_crs": false,
+  "seed": 42,
+  "agent": {
+    "backend": "local",
+    "base_url": "http://hayoung:8000/v1",
+    "model": "skt/A.X-4.0",
+    "timeout": 60,
+    "max_tokens": 1200
+  },
+  "policies": {
+    "sources_file": "references/policy_sources.json",
+    "max_pages_per_source": 10,
+    "max_age_days": 7
+  },
+  "isolation": {
+    "geo_level": "sigungu",
+    "time_mode": "retrospective",
+    "geography_file": "references/geography.csv",
+    "block_mapping_file": "references/block_geography.csv",
+    "sources_file": "references/structural_sources.csv",
+    "train_end": "202510",
+    "validation_month": "202511",
+    "test_month": "202512",
+    "suspect_decline": 0.2,
+    "stable_change": 0.1,
+    "structural_quantile": 0.75,
+    "min_reference_regions": 5,
+    "min_training_regions": 3,
+    "holdout_districts": []
+  }
+}

@@ -1,0 +1,6 @@
+source_id,path,reference_period,available_at,url
+lonely_deaths,data/고독사_발생_현황_지역별.csv,2024,2025-11-27,https://eiec.kdi.re.kr/policy/materialView.do?num=273969
+elderly,data/독거노인+현황(성별_동별).csv,2025,,
+elderly_households,data/독거노인가구비율_시도_시_군_구.csv,2025,,
+single_households,data/성_및_연령별_1인가구__시군구.csv,2025,,
+registered_households,data/행정구역_시군구_별_주민등록세대수.csv,2025,,
