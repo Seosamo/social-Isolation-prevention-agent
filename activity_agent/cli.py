@@ -94,21 +94,27 @@ def main(argv=None):
         if config.values.get("isolation", {}).get("method") == "isolation_forest" and (
                 args.command == "run-isolation" or (getattr(args, "task", None) == "isolation"
                 and args.command in ("train", "detect", "evaluate"))):
-            from activity_agent.isolation.anomaly import train_anomaly, detect_anomaly, read_model
+            from activity_agent.isolation.anomaly import train_anomaly, detect_anomaly, read_model, selected_model_id
             if args.command in ("run-isolation", "train"):
                 if args.command == "train" and (args.source != "weak" or any((args.train_end, args.validation_month, args.test_month, args.holdout_region))):
                     raise ValueError("Anomaly training does not use reviewed labels; configure temporal splits in isolation settings")
                 if args.command == "run-isolation":
                     from activity_agent.isolation.structural import load_structural_sources
                     load_structural_sources(config)
-                train_anomaly(config)
+                if args.command == "run-isolation" and selected_model_id(config) == "IF_F2":
+                    detect_anomaly(config)
+                else:
+                    train_anomaly(config)
             elif args.command == "detect":
                 detect_anomaly(config)
             else:
                 import json
                 from activity_agent.isolation.config import destination
-                read_model(config)
-                print(destination(config, "anomaly/evaluation.json").read_text(encoding="utf-8"))
+                model = read_model(config)
+                text = destination(config, "anomaly/evaluation.json").read_text(encoding="utf-8")
+                if json.loads(text).get("model_version") != model["model_version"]:
+                    raise ValueError("Evaluation does not match the selected model; rerun detect --task isolation")
+                print(text)
             return 0
         if args.command == "explore-contraction":
             from activity_agent.isolation.exploration import explore_contraction

@@ -272,6 +272,8 @@ def _stability(run, identity, model, train, calibration, evaluation, predicted):
 
 
 def run_experiments(config, suite="all", resume=None):
+    if anomaly.selected_model_id(config) != "IF_BASELINE":
+        raise ValueError("Comparison experiments require isolation.model_id=IF_BASELINE; use a separate config so IF_F2 deployment is preserved")
     root = experiment_root(config)
     run_id = resume or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     if Path(run_id).name != run_id or run_id in (".", ".."):

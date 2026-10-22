@@ -365,3 +365,11 @@ def test_no_mapping_produces_readiness_report_without_fake_labels(isolation_pipe
     assert not report["training_ready"] and report["cohort_rows"] == 0
     with pytest.raises(ValueError, match="training blocked"):
         train_model(cfg)
+
+
+def test_detector_selection_preserves_label_policy_settings(config):
+    # Contraction exploration compares these settings to the saved label policy.
+    before = settings(config)
+    config.values['isolation'].update(model_id='IF_F2', model_path='models/IF_F2.pkl',
+                                     flow_cutoffs_path='models/flow_cutoffs.csv')
+    assert settings(config) == before

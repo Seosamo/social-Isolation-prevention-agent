@@ -89,12 +89,13 @@ class IsolationEvidenceAgent:
                         break
         candidates = self.tools.candidates(month, sex, age, region, limit=3)
         if self.is_anomaly:
+            reference_label = "보정 표본" if self.tools.model.get("score_reference") == "calibration" else "학습"
             if candidates.empty:
                 return "선택 조건에서 활동 위축 이상 후보가 없습니다. 고립이 없다는 확인 결과는 아닙니다."
             lines = ["서울·강원 관측 소지역의 활동 위축 이상 후보입니다. 고립 확률이나 개인 판정이 아닙니다."]
             for row in candidates.itertuples(index=False):
                 lines += [f"\n**{row.province} / 소지역 {row.block_code} / {row.sex} / {row.age_band} / {row.month}**",
-                          f"- 활동 이상 백분위 {row.anomaly_percentile:.1f}/100: 학습 분포와 비교한 순위이며 확률이 아닙니다.",
+                          f"- 활동 이상 백분위 {row.anomaly_percentile:.1f}/100: {reference_label} 분포와 비교한 순위이며 확률이 아닙니다.",
                           f"- 유동 감소율 {percentage(row.activity_decline)}, 직전 비교 {percentage(row.previous_activity_decline)}.",
                           f"- 낮 감소율 {percentage(row.daytime_decline)}, 주말 감소율 {percentage(row.weekend_decline)}.",
                           f"- 두 연속 20% 위축: {'해당' if row.persistent_20pct else '미해당'}. 기준 유동량 {row.baseline_flow:.2f}.",
@@ -137,7 +138,7 @@ class AnomalyQueryTools:
 
     def __init__(self, config):
         from activity_agent.isolation.anomaly import read_model
-        read_model(config)
+        self.model = read_model(config)
         self.config = config
         self.labels = load(config, "anomaly/detections")
 

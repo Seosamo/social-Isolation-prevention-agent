@@ -24,7 +24,9 @@ DEFAULTS = {
 
 
 def settings(config: Config) -> dict:
-    result = DEFAULTS | config.values.get("isolation", {})
+    deployment_keys = {"model_id", "model_path", "flow_cutoffs_path"}
+    configured = {k: v for k, v in config.values.get("isolation", {}).items() if k not in deployment_keys}
+    result = DEFAULTS | configured
     if result["method"] not in ("supervised", "isolation_forest"):
         raise ValueError("isolation.method must be supervised or isolation_forest")
     if result["geo_level"] not in ("sido", "dong", "sigungu"):

@@ -118,7 +118,7 @@ $env:AGENT_BACKEND = "vllm"
 
 vLLM 실행 흐름은 `질문 → LLM의 조회 조건 JSON → 허용된 로컬 조회 → LLM 설명 → 조회 근거 원문 첨부`입니다. 모델에 임의 코드·SQL·학습·파일 쓰기 도구를 제공하지 않습니다. 질문과 선택된 집계 근거·정책 안내는 설정한 vLLM 서버로 전송됩니다. 원본 데이터 전체를 전송하지 않습니다. 모델별 tool-calling parser나 JSON 강제 출력 지원에 의존하지 않고 일반 채팅 응답의 JSON을 검증합니다.
 
-명시된 월·성별·연령·강남/춘천 지역은 모델이 조회 범위를 넓히지 못하도록 보존하며, CLI/화면 필터가 우선합니다. 지원하지 않는 세부 연령은 기존 안내를 반환합니다. 최종 설명에서 근거에 없는 숫자·URL을 감지하면 설명을 버리고 로컬 근거를 표시합니다. 이는 모든 의미적 오류를 검증하는 것은 아니므로 원문도 항상 함께 제공합니다. 서버 오류·시간 초과·잘못된 JSON·응답 잘림도 명시하고 로컬 조회로 대체합니다.
+명시된 월·성별·연령·강남/춘천 지역은 모델이 조회 범위를 넓히지 못하도록 보존하며, CLI/화면 필터가 우선합니다. 지원하지 않는 세부 연령은 기존 안내를 반환합니다. 최종 설명에서 근거에 없는 숫자·URL을 감지하면 정상 답변으로 채택하지 않고 로컬 근거를 표시합니다. 대시보드와 CLI 모두 별도 디버그 설정 없이 실패 단계·조회 근거·생성 답변·추가 감지 숫자·URL을 진단 블록에 표시합니다. 질문 해석 실패와 잘린 응답도 받은 원문을 보존하며, 응답을 받지 못했다면 그 상태를 표시합니다. 진단의 생성 원문은 검증을 통과한 설명이 아닙니다. 이는 모든 의미적 오류를 검증하는 것은 아니므로 원문도 항상 함께 제공합니다. 서버 오류·시간 초과·잘못된 JSON·응답 잘림도 명시하고 로컬 조회로 대체합니다.
 
 `VLLM_TIMEOUT`(기본 60초, 요청별), `VLLM_MAX_TOKENS`(설명 기본 1200)를 환경변수 또는 `agent` 설정으로 조정할 수 있습니다. 한 질문에는 일반적으로 해석·설명 두 번의 요청이 발생합니다. `llm-check`는 추론 없이 모델 목록과 이름을 확인하는 명령이며 실제 생성 가능 여부를 보장하지는 않습니다. localhost에 접속되지 않으면 로컬 서버 실행 상태와 8000번 포트 접근을 확인하세요.
 
@@ -191,9 +191,11 @@ app.py          # Streamlit 실행용 진입점
 
 모델 비교·특징량 Ablation·합성 주입·지역/시간 진단과 독립 오프라인 HTML 리포트는 `python -B -m activity_agent experiment --suite all`로 실행합니다. 기존 운영 모델을 보존하며 `artifacts/isolation/experiments/<run_id>/index.html`이 진입점입니다. [실험 방법·실제 결과·재현 명령](docs/anomaly-experiments.md)을 참고하세요.
 
-현재 기본 방법은 **서울·강원 소지역 활동의 비지도 이상 탐지(`isolation.method=isolation_forest`)**입니다. `run-isolation` 또는 `train --task isolation`으로 Isolation Forest를 학습하고 이후 월의 활동 위축 후보를 산출합니다. 양성·음성 라벨 없이 학습하며, 시도 1인가구 통계는 모델 입력에 넣지 않고 설명용 맥락으로만 연결합니다. `readiness`, `evaluate --task isolation`, `detect --task isolation`, `ask --task isolation`과 대시보드의 고립 의심 화면도 이 방법에 연결됩니다. [비지도 학습 결과·평가 범위·실행법](docs/activity-anomaly-model.md)을 참고하세요.
+현재 운영 선택은 **`IF_F2`**입니다. `config/default.json`의 `isolation.model_id`와 `isolation.model_path`로 선택하며, 저장된 실험 모델의 8개 입력 특징·정규화·보정 임계값을 유지합니다. **`detect --task isolation`으로 적용**하며, [F2 실행 순서와 필수 자료](docs/f2-deployment.md)를 참고하세요. `train --task isolation`으로 기존 모델을 덮어쓰지 않습니다.
 
-운영 모델과 메타데이터는 `activity_agent/model/isolation_forest.pkl`, `activity_agent/model/isolation_forest.json`에 저장하며 Git 추적 대상입니다. 실험 비교 모델은 `activity_agent/model/experiments/<run_id>/`에 실험 ID 이름으로 저장합니다. 탐지 결과와 HTML 리포트는 기존 `artifacts/`에 보관합니다.
+기존 Baseline 방법은 **서울·강원 소지역 활동의 비지도 이상 탐지(`isolation.method=isolation_forest`, `isolation.model_id=IF_BASELINE`)**입니다. `run-isolation` 또는 `train --task isolation`으로 Isolation Forest를 학습하고 이후 월의 활동 위축 후보를 산출합니다. 양성·음성 라벨 없이 학습하며, 시도 1인가구 통계는 모델 입력에 넣지 않고 설명용 맥락으로만 연결합니다. `readiness`, `evaluate --task isolation`, `detect --task isolation`, `ask --task isolation`과 대시보드의 고립 의심 화면도 이 방법에 연결됩니다. [비지도 학습 결과·평가 범위·실행법](docs/activity-anomaly-model.md)을 참고하세요.
+
+Baseline 모델과 메타데이터는 `activity_agent/model/isolation_forest.pkl`, `activity_agent/model/isolation_forest.json`에 보존합니다. 현재 F2는 `activity_agent/model/experiments/20261021T110042016328Z/IF_F2.pkl`과 동명 JSON을 읽습니다. 실험 비교 모델은 `activity_agent/model/experiments/<run_id>/`에 실험 ID 이름으로 저장합니다. 탐지 결과와 HTML 리포트는 기존 `artifacts/`에 보관합니다.
 
 LLM agent용 구조화 JSON은 `python -m activity_agent agent-evidence --month 202512 --region 11 --limit 10`으로 조회합니다. Python 조회 도구와 vLLM 자동 전달 방식은 [agent 전달 계약](docs/agent-evidence.md)을 참고하세요.
 

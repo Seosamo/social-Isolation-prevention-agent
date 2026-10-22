@@ -73,7 +73,8 @@ def test_unsubstantiated_summary_and_plan_failure_fall_back(config):
     client = FakeClient({}, "고립 확률 99.9%. https://invented.example")
     answer = VLLMBackend(config, client).run("활동", lookup, "202512", {}, "activity")
     assert "vLLM 처리 실패" in answer and "25.0%" in answer
-    assert "99.9" not in answer and "invented.example" not in answer
+    assert "실패 단계: 근거 검증" in answer
+    assert "생성 답변: 고립 확률 99.9%. https://invented.example" in answer
     client = FakeClient({"age": "70"})
     assert "로컬 근거" in VLLMBackend(config, client).run("활동", lookup, "202512", {}, "activity")
 

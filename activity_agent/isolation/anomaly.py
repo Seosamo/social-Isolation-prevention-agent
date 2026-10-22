@@ -18,8 +18,22 @@ PROFILE = ["geo_code", "sex", "age_band"]
 MODEL_FILE = "activity_agent/model/isolation_forest.pkl"
 
 
+def selected_model_id(config):
+    identity = config.values.get("isolation", {}).get("model_id", "IF_BASELINE")
+    if identity not in ("IF_BASELINE", "IF_F2"):
+        raise ValueError("isolation.model_id must be IF_BASELINE or IF_F2")
+    return identity
+
+
 def model_path(config):
     """Resolve the version-controlled operating model independently of artifacts."""
+    if selected_model_id(config) == "IF_F2":
+        from pathlib import Path
+        name = config.values["isolation"].get("model_path")
+        if not name:
+            raise ValueError("IF_F2 requires isolation.model_path")
+        path = Path(name)
+        return path if path.is_absolute() else config.root / path
     return config.root / MODEL_FILE
 
 
@@ -90,6 +104,9 @@ def forest(cfg, seed):
 
 
 def score_frame(model, frame):
+    if model.get("model_id") == "IF_F2":
+        from .f2 import score_frame as score_f2
+        return score_f2(model, frame)
     result = frame.copy()
     matrix, eligible, cutoff = transform(frame, model["profiles"])
     eligible &= frame.geo_code.isin(model["region_codes"])
@@ -139,6 +156,8 @@ def attach_context(config, frame):
 
 
 def train_anomaly(config):
+    if selected_model_id(config) == "IF_F2":
+        raise ValueError("IF_F2 uses its saved experiment model; run detect --task isolation (no retraining)")
     cfg, params = settings(config), anomaly_settings(config)
     if cfg["geo_level"] != "sido" or cfg["holdout_regions"]:
         raise ValueError("Anomaly experiment uses selected sido regions with temporal evaluation; no region holdout")
@@ -236,6 +255,9 @@ def diagnostics(config, model, frame, matrix, fit_rows, scored):
 
 
 def read_model(config):
+    if selected_model_id(config) == "IF_F2":
+        from .f2 import read_model as read_f2
+        return read_f2(config)
     with model_path(config).open("rb") as stream:
         model = pickle.load(stream)
     if model.get("task_id") != "local_activity_anomaly_v1" or model.get("inputs") != INPUTS:
@@ -253,12 +275,22 @@ def read_model(config):
 
 def detect_anomaly(config):
     model = read_model(config)
-    frame = local_features(config).reset_index(drop=True)
+    if selected_model_id(config) == "IF_F2":
+        from .f2 import prepare_features
+        frame = prepare_features(config, model)
+    else:
+        frame = local_features(config).reset_index(drop=True)
     scored = attach_context(config, score_frame(model, frame))
     save(config, "anomaly/detections", scored)
     scored.loc[scored.candidate].sort_values(["month", "anomaly_raw", "activity_decline"], ascending=[True, False, False]).to_csv(
         destination(config, "anomaly/candidates.csv"), index=False, encoding="utf-8-sig")
     write_chart(config, scored, model)
+    if model.get("model_id") == "IF_F2":
+        from .f2 import evaluation
+        report = evaluation(model, scored)
+        report_json(config, "anomaly/evaluation", report)
+        report_json(config, "anomaly/deployment", report)
+        report_json(config, "anomaly/readiness", anomaly_readiness(config))
     return scored
 
 

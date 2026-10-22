@@ -86,10 +86,12 @@ def _snapshot(frames, month, family, minimum):
     return aggregates, coverage.ge(minimum)
 
 
-def build_features(config, run):
+def build_features(config, run=None, *, base=None, months=None):
     """Read production artifacts only; do not call helpers that write production manifests."""
-    base = pd.read_parquet(destination(config, "anomaly/detections.parquet"))
-    base = base.loc[base.month.isin(["202510", "202511", "202512"])].copy()
+    if base is None:
+        base = pd.read_parquet(destination(config, "anomaly/detections.parquet"))
+    months = list(months) if months is not None else ["202510", "202511", "202512"]
+    base = base.loc[base.month.isin(months)].copy()
     cfg = settings(config)
     mapping_path = reference_path(config, "block_mapping_file")
     mapping = pd.read_csv(mapping_path, dtype=str).fillna("")
@@ -120,7 +122,7 @@ def build_features(config, run):
             frames = {m: f for m, f in frames.items() if m >= previous_month(month, 2)}
             sources.append({"file": filename, "sha256": fingerprint(path), "rows": len(raw)})
     regional, grouped = [], []
-    for month in ("202510", "202511", "202512"):
+    for month in months:
         prev = previous_month(month)
         if not all(month in snapshots[k] and prev in snapshots[k] for k in snapshots):
             continue
@@ -165,7 +167,8 @@ def build_features(config, run):
     quality_cols = [c for c in base if c not in source and c not in ("anomaly_raw", "anomaly_percentile", "candidate", "status", "engine_version")]
     source = source.merge(base[KEY + [c for c in quality_cols if c not in KEY]], on=KEY, how="left", validate="one_to_one")
     source["row_id"] = source[KEY].astype(str).agg("|".join, axis=1)
-    source.to_parquet(run / "data/features.parquet", index=False)
+    if run is not None:
+        source.to_parquet(run / "data/features.parquet", index=False)
     return source, {"sources": sources, "reconstruction_max_abs_error": errors,
                     "aggregation": "Age: block×sex×age×month; time/weekday: block×month. Region totals for relative/share use the same AGE family only.",
                     "units": "Provider aggregate floating flow counts, not unique persons. Cross-family absolute volumes are not equated."}

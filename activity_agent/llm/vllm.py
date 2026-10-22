@@ -12,7 +12,36 @@ from activity_agent.common.config import Config
 
 
 class VLLMError(ValueError):
-    """Public, credential-free inference failure."""
+    """Public failure with optional received content for diagnostic presentation."""
+
+    def __init__(self, message, *, raw_text=None, finish_reason=None):
+        super().__init__(message)
+        self.raw_text = raw_text
+        self.finish_reason = finish_reason
+
+
+def redact_response(text, api_key):
+    return text.replace(api_key, "[REDACTED]") if api_key else text
+
+
+def failure_diagnostics(stage, source, summary, plan, error, extra_numbers, extra_urls, api_key):
+    """Render received text literally in both Streamlit Markdown and terminal output."""
+    absent = "수신한 생성 원문 없음"
+    lines = [f"실패 단계: {stage}", f"조회 근거: {source}",
+             f"생성 답변: {summary if summary is not None else absent}",
+             "추가로 감지된 숫자: " + json.dumps(extra_numbers, ensure_ascii=False),
+             "추가로 감지된 URL: " + json.dumps(extra_urls, ensure_ascii=False)]
+    if plan is not None:
+        lines.append(f"질문 해석 응답: {plan}")
+    if error.finish_reason is not None:
+        lines.append(f"응답 종료 사유: {error.finish_reason}")
+    text = redact_response("\n".join(lines), api_key)
+    # The same string is printed by CLI: expose ANSI/OSC and other controls literally.
+    text = "".join(f"\\x{ord(char):02x}" if (ord(char) < 32 and char not in "\n\t")
+                   or 127 <= ord(char) < 160 else char for char in text)
+    longest = max((len(match.group()) for match in re.finditer(r"`+", text)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}text\n{text}\n{fence}"
 
 
 @dataclass(frozen=True)
@@ -67,11 +96,19 @@ class VLLMClient:
                 raise VLLMError("vLLM 응답 크기 제한 초과")
             return json.loads(raw.decode("utf-8"))
         except HTTPError as error:
-            raise VLLMError(f"vLLM HTTP {error.code}: 모델 이름·서버 설정·인증을 확인해 주세요.") from None
+            try:
+                received = error.read(8192).decode("utf-8", errors="replace")
+                received = redact_response(received, self.settings.api_key) or None
+            except (OSError, AttributeError, TypeError):
+                received = None
+            finally:
+                error.close()
+            raise VLLMError(f"vLLM HTTP {error.code}: 모델 이름·서버 설정·인증을 확인해 주세요.", raw_text=received) from None
         except (URLError, TimeoutError, OSError):
             raise VLLMError("vLLM 서버에 연결할 수 없습니다. 서버 주소·네트워크·포트·시간 제한을 확인해 주세요.") from None
         except (UnicodeError, json.JSONDecodeError):
-            raise VLLMError("vLLM 서버가 올바른 JSON을 반환하지 않았습니다.") from None
+            received = redact_response(raw.decode("utf-8", errors="replace")[:8192], self.settings.api_key)
+            raise VLLMError("vLLM 서버가 올바른 JSON을 반환하지 않았습니다.", raw_text=received) from None
 
     def chat(self, system, user, max_tokens=None):
         data = self.request("/chat/completions", {"model": self.settings.model,
@@ -80,11 +117,14 @@ class VLLMClient:
         try:
             choice = data["choices"][0]
             text = choice["message"]["content"]
-            if choice.get("finish_reason") == "length" or not isinstance(text, str) or not text.strip():
-                raise ValueError
-            return text.strip()
-        except (KeyError, IndexError, TypeError, ValueError):
-            raise VLLMError("vLLM 답변이 비어 있거나 잘렸습니다. 토큰 제한과 모델의 chat template을 확인해 주세요.") from None
+            reason = choice.get("finish_reason")
+        except (KeyError, IndexError, TypeError, AttributeError):
+            raise VLLMError("vLLM 답변 형식이 올바르지 않습니다. 모델의 chat template을 확인해 주세요.") from None
+        if reason == "length" or not isinstance(text, str) or not text.strip():
+            received = redact_response(text, self.settings.api_key) if isinstance(text, str) else None
+            raise VLLMError("vLLM 답변이 비어 있거나 잘렸습니다. 토큰 제한과 모델의 chat template을 확인해 주세요.",
+                            raw_text=received, finish_reason=reason)
+        return text.strip()
 
     def check(self):
         data = self.request("/models")
@@ -160,10 +200,13 @@ class VLLMBackend:
         band = re.search(r"([1-9]0)\s*대\s*(이상)?", question)
         if band and (int(band.group(1)) > 60 or (band.group(2) and band.group(1) != "60") or (task == "activity" and band.group(1) == "60" and not band.group(2))):
             return lookup(question, filters)
-        evidence = None
+        evidence = source = plan_raw = summary = None
+        extra_numbers, extra_urls = [], []
+        stage = "질문 해석"
         try:
             text = self.client.chat(PLAN_PROMPT, json.dumps({"question": question, "task": task,
                                     "latest_month": latest, "explicit_filters": filters}, ensure_ascii=False), max_tokens=350)
+            plan_raw = text
             plan = parse_plan(text)
             resolved = {k: v for k, v in plan.items() if k != "policies" and v is not None}
             # Literal constraints cannot be broadened by an erroneous model plan.
@@ -192,18 +235,34 @@ class VLLMBackend:
             payload = {"question": question, "evidence": evidence}
             if structured is not None:
                 payload["structured_evidence"] = structured
+            source = evidence
+            if structured is not None:
+                source += "\n\n구조화 근거:\n" + json.dumps(structured, ensure_ascii=False, indent=2, allow_nan=False)
+            stage = "설명 생성"
             summary = self.client.chat(ANSWER_PROMPT, json.dumps(payload, ensure_ascii=False, allow_nan=False))
-            # Reject newly invented numeric tokens and external links before presentation.
+            stage = "근거 검증"
+            # Reject unsupported claims as the answer, but retain them as literal diagnostics.
             numbers = lambda s: set(re.findall(r"\d+(?:\.\d+)?", s))
             urls = lambda s: set(re.findall(r"https?://[^\s)<>]+", s))
-            source = evidence + (json.dumps(structured, ensure_ascii=False) if structured is not None else "")
-            if numbers(summary) - numbers(source) or urls(summary) - urls(source):
-                raise VLLMError("생성 답변에 조회 근거에 없는 수치 또는 URL이 있어 요약을 표시하지 않습니다.")
+            extra_numbers = sorted(numbers(summary) - numbers(source))
+            extra_urls = sorted(urls(summary) - urls(source))
+            if extra_numbers or extra_urls:
+                raise VLLMError("생성 답변에 조회 근거에 없는 수치 또는 URL이 있습니다. 검증 미통과 원문을 진단에 표시합니다.")
             return f"**vLLM 생성 설명 · {self.client.settings.model}**\n\n{summary}\n\n---\n**도구 조회 근거 원문**\n\n{evidence}"
         except VLLMError as error:
             if evidence is None:
                 evidence = lookup(question, filters)
-            return f"**vLLM 처리 실패 — 로컬 근거를 표시합니다.**\n\n{error}\n\n{evidence}"
+            if stage == "질문 해석" and plan_raw is None:
+                plan_raw = error.raw_text
+            if stage == "설명 생성" and summary is None:
+                summary = error.raw_text
+            api_key = getattr(self.client.settings, "api_key", "")
+            diagnostic = failure_diagnostics(stage, source if source is not None else evidence,
+                                             summary, plan_raw, error, extra_numbers, extra_urls, api_key)
+            message = redact_response(str(error), api_key)
+            return (f"**vLLM 처리 실패 — 로컬 근거를 표시합니다.**\n\n{message}\n\n"
+                    f"**vLLM 응답 진단 · 미검증 원문**\n\n{diagnostic}\n\n---\n"
+                    f"**도구 조회 근거 원문**\n\n{evidence}")
 
 
 def create_activity_agent(config, tools=None, backend=None):

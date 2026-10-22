@@ -38,7 +38,7 @@
     "geo_level": "sido",
     "time_mode": "retrospective",
     "geography_file": "references/geography.csv",
-    "block_mapping_file": "artifacts/isolation/block_geography_candidates.csv",
+    "block_mapping_file": "/tmp/activity-agent-artifacts/isolation/block_geography_candidates.csv",
     "mapping_mode": "crs_consensus",
     "region_codes": ["11", "32"],
     "sources_file": "references/structural_sources.csv",
@@ -50,6 +50,9 @@
     "structural_quantile": 0.75,
     "min_reference_regions": 2,
     "min_training_regions": 2,
-    "holdout_regions": []
+    "holdout_regions": [],
+    "model_id": "IF_F2",
+    "model_path": "activity_agent/model/experiments/20261021T110042016328Z/IF_F2.pkl",
+    "flow_cutoffs_path": "/tmp/activity-agent-artifacts/isolation/experiments/20261021T110042016328Z/data/flow_cutoffs.csv"
   }
 }

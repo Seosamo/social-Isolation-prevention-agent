@@ -97,22 +97,27 @@ def render_anomaly_dashboard(config: Config):
     st.caption("비지도 모델로 활동 패턴의 이상을 탐색합니다. 점수는 고립 확률이 아니며, 관측 소지역에 한정됩니다.")
     path = destination(config, "anomaly/detections.parquet")
     if not path.exists():
-        st.info("먼저 python -m activity_agent run-isolation 으로 활동 이상 모델을 학습해 주세요.")
+        st.info("먼저 python -m activity_agent detect --task isolation 으로 선택한 모델의 탐지 결과를 생성해 주세요.")
         return
     from activity_agent.isolation.anomaly import read_model
     try:
         model = read_model(config)
-    except ValueError as error:
+    except (ValueError, FileNotFoundError) as error:
         st.error(str(error))
         return
     data = load(config, "anomaly/detections")
+    if set(data.engine_version) != {model["model_version"]}:
+        st.error("Anomaly predictions do not match the selected model; rerun detect --task isolation")
+        return
+    reference_label = "보정 표본" if model.get("score_reference") == "calibration" else "학습"
+    st.caption(f"탐지 모델: {model.get('model_id', 'IF_BASELINE')} · 점수 기준: {reference_label} 분포")
     months = sorted(data.loc[data.month.gt(model["train_end"]), "month"].unique(), reverse=True)
     if not months:
         st.info("학습 종료 이후의 자료가 없습니다.")
         return
     a, b, c = st.columns(3)
     a.metric("학습 관측 행", f"{model['training_rows']:,}")
-    b.metric("학습 소지역", f"{model['training_blocks']:,}")
+    b.metric("학습 소지역", f"{model['training_blocks']:,}" if model["training_blocks"] is not None else "미확인")
     c.metric("유효 학습 월", len(model["training_months"]))
     st.caption("성·연령별 반복 행은 독립 지역 수나 사람 수가 아닙니다. 한 달의 학습 분포를 비교하며 계절성을 학습한 모델은 아닙니다.")
     month = st.selectbox("활동 이상 분석 월", months, key="anomaly_month")
@@ -126,7 +131,7 @@ def render_anomaly_dashboard(config: Config):
     candidates = selected.loc[selected.candidate].sort_values("anomaly_raw", ascending=False)
     st.metric("위축 이상 후보 소지역", candidates.block_code.nunique())
     params = model["anomaly_settings"]
-    st.caption(f"학습 이상 점수의 상위 {1-params['reference_quantile']:.0%} 기준을 고정 적용하고, 현재 유동 {params['minimum_decline']:.0%} 이상 감소 및 낮·주말 감소 근거가 있는 후보입니다. 실제 이상 비율을 가정하지 않습니다.")
+    st.caption(f"{reference_label} 이상 점수의 상위 {1-params['reference_quantile']:.0%} 기준을 고정 적용하고, 현재 유동 {params['minimum_decline']:.0%} 이상 감소 및 낮·주말 감소 근거가 있는 후보입니다. 실제 이상 비율을 가정하지 않습니다.")
     columns = ["province", "block_code", "sex", "age_band", "anomaly_percentile", "anomaly_raw", "activity_decline",
                "previous_activity_decline", "daytime_decline", "weekend_decline", "persistent_20pct",
                "baseline_flow", "province_structure_context"]

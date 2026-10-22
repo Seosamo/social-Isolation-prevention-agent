@@ -12,6 +12,11 @@ from activity_agent.data.ingest import AGE_COLUMNS, DAY_COLUMNS, TIME_COLUMNS
 def config(tmp_path):
     root = Path(__file__).resolve().parents[1]
     values = json.loads((root / "config/default.json").read_text())
+    # Project output may be absolute; all fixtures must remain inside tmp_path.
+    values["output_dir"] = "artifacts"
+    values["isolation"]["model_id"] = "IF_BASELINE"
+    values["isolation"].pop("model_path", None)
+    values["isolation"].pop("flow_cutoffs_path", None)
     (tmp_path / "config").mkdir()
     (tmp_path / "references").mkdir()
     for name in ("industries.csv", "block_regions.csv", "resources.csv"):
