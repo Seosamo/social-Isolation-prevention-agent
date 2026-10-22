@@ -15,7 +15,7 @@
   "seed": 42,
   "agent": {
     "backend": "local",
-    "base_url": "http://hayoung:8000/v1",
+    "base_url": "http://localhost:8000/v1",
     "model": "skt/A.X-4.0",
     "timeout": 60,
     "max_tokens": 1200

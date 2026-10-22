@@ -17,7 +17,7 @@ class VLLMError(ValueError):
 
 @dataclass(frozen=True)
 class VLLMSettings:
-    base_url: str = "http://hayoung:8000/v1"
+    base_url: str = "http://localhost:8000/v1"
     model: str = "skt/A.X-4.0"
     timeout: float = 60
     max_tokens: int = 1200
@@ -69,7 +69,7 @@ class VLLMClient:
         except HTTPError as error:
             raise VLLMError(f"vLLM HTTP {error.code}: 모델 이름·서버 설정·인증을 확인해 주세요.") from None
         except (URLError, TimeoutError, OSError):
-            raise VLLMError("vLLM 서버에 연결할 수 없습니다. hayoung 주소 해석·네트워크·포트·시간 제한을 확인해 주세요.") from None
+            raise VLLMError("vLLM 서버에 연결할 수 없습니다. 서버 주소·네트워크·포트·시간 제한을 확인해 주세요.") from None
         except (UnicodeError, json.JSONDecodeError):
             raise VLLMError("vLLM 서버가 올바른 JSON을 반환하지 않았습니다.") from None
 

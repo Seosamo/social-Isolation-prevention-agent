@@ -16,7 +16,7 @@ def test_transport_uses_exact_model_and_chat_endpoint():
     client = VLLMClient(VLLMSettings(api_key="test-secret"), open_request)
     assert client.chat("system", "question") == "응답"
     request, timeout = captured[0]
-    assert request.full_url == "http://hayoung:8000/v1/chat/completions"
+    assert request.full_url == "http://localhost:8000/v1/chat/completions"
     assert json.loads(request.data)["model"] == "skt/A.X-4.0"
     assert request.get_header("Authorization") == "Bearer test-secret"
     assert timeout == 60
