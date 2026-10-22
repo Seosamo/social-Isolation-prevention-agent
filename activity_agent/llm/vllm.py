@@ -150,9 +150,11 @@ class VLLMBackend:
     def answer_isolation(self, question, agent, filters):
         from activity_agent.isolation.queries import IsolationEvidenceAgent
         latest = agent.tools.labels.month.max() if not agent.tools.labels.empty else None
-        return self.run(question, lambda q, f: IsolationEvidenceAgent(agent.config).answer(q, **f), latest, filters, "isolation")
+        structured = (lambda f: agent.tools.candidate_evidence(**{k: v for k, v in f.items()
+                      if k in ("month", "sex", "age", "region")}, limit=10)) if agent.is_anomaly else None
+        return self.run(question, lambda q, f: IsolationEvidenceAgent(agent.config).answer(q, **f), latest, filters, "isolation", structured)
 
-    def run(self, question, lookup, latest, filters, task):
+    def run(self, question, lookup, latest, filters, task, structured_lookup=None):
         if not question.strip():
             return "질문을 입력해 주세요."
         band = re.search(r"([1-9]0)\s*대\s*(이상)?", question)
@@ -186,11 +188,16 @@ class VLLMBackend:
             resolved["_resolved"] = True
             query = question + (" 정책 추천" if plan.get("policies") else "")
             evidence = lookup(query, resolved)
-            summary = self.client.chat(ANSWER_PROMPT, json.dumps({"question": question, "evidence": evidence}, ensure_ascii=False))
+            structured = structured_lookup(resolved) if structured_lookup else None
+            payload = {"question": question, "evidence": evidence}
+            if structured is not None:
+                payload["structured_evidence"] = structured
+            summary = self.client.chat(ANSWER_PROMPT, json.dumps(payload, ensure_ascii=False, allow_nan=False))
             # Reject newly invented numeric tokens and external links before presentation.
             numbers = lambda s: set(re.findall(r"\d+(?:\.\d+)?", s))
             urls = lambda s: set(re.findall(r"https?://[^\s)<>]+", s))
-            if numbers(summary) - numbers(evidence) or urls(summary) - urls(evidence):
+            source = evidence + (json.dumps(structured, ensure_ascii=False) if structured is not None else "")
+            if numbers(summary) - numbers(source) or urls(summary) - urls(source):
                 raise VLLMError("생성 답변에 조회 근거에 없는 수치 또는 URL이 있어 요약을 표시하지 않습니다.")
             return f"**vLLM 생성 설명 · {self.client.settings.model}**\n\n{summary}\n\n---\n**도구 조회 근거 원문**\n\n{evidence}"
         except VLLMError as error:

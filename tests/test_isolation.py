@@ -28,6 +28,12 @@ def write_csv(path, rows, encoding="utf-8-sig", delimiter=","):
 @pytest.fixture
 def isolation_pipeline(source_data):
     cfg = source_data
+    cfg.values["isolation"]["geo_level"] = "sigungu"
+    cfg.values["isolation"]["method"] = "supervised"
+    cfg.values["isolation"].update(mapping_mode="verified", region_codes=[],
+                                     block_mapping_file="references/block_geography.csv",
+                                     min_reference_regions=5, min_training_regions=3)
+    cfg.values["isolation"].pop("holdout_regions", None)
     data = cfg.path("data_dir")
     districts = [f"테스트{i}구" for i in range(6)]
     geography = [["geo_level", "geo_code", "province", "district", "dong", "parent_code", "reference_year", "source_url", "verified"]]
@@ -73,6 +79,7 @@ def isolation_pipeline(source_data):
     build_cohorts(cfg)
     label_cohorts(cfg)
     validate_training_readiness(cfg)
+    (cfg.root / "config/default.json").write_text(json.dumps(cfg.values), encoding="utf-8")
     return cfg
 
 
@@ -95,6 +102,107 @@ def test_normalizer_detects_actual_geography_and_preserves_missing():
     assert nested["geo_level"] == "unresolved" and nested["dong"] == "동구"
     ward = location(["경기도", "수원시", "장안구"])
     assert ward["geo_level"] == "sigungu" and ward["district"] == "수원시 장안구"
+
+
+def test_sido_pipeline_trains_and_holds_out_whole_provinces(isolation_pipeline):
+    from activity_agent.isolation.config import save
+    from activity_agent.isolation.structural import PROVINCES
+
+    cfg = isolation_pipeline
+    cfg.values["isolation"].update(geo_level="sido", holdout_regions=["s5"])
+    registry_path = cfg.root / "references/geography.csv"
+    registry = pd.read_csv(registry_path, dtype=str).fillna("")
+    provinces = dict(zip(registry.geo_code, PROVINCES[:6]))
+    registry["geo_level"] = "sido"
+    registry["province"] = registry.geo_code.map(provinces)
+    registry[["district", "dong", "parent_code"]] = ""
+    registry.to_csv(registry_path, index=False)
+    mapping_path = cfg.root / "references/block_geography.csv"
+    mapping = pd.read_csv(mapping_path, dtype=str)
+    mapping["geo_level"] = "sido"
+    mapping.to_csv(mapping_path, index=False)
+    structural = load(cfg, "structural")
+    selected = structural.geo_code.isin(provinces)
+    structural.loc[selected, "province"] = structural.loc[selected, "geo_code"].map(provinces)
+    structural.loc[selected, "geo_level"] = "sido"
+    structural.loc[selected, ["district", "dong"]] = ""
+    save(cfg, "structural", structural)
+
+    cohorts = build_cohorts(cfg)
+    assert set(cohorts.geo_level) == {"sido"}
+    assert (cohorts.district_code == cohorts.geo_code).all()
+    assert cohorts.social_consumption_decline.isna().all()  # District cards cannot represent a province.
+    assert cohorts.structure_quality.eq("ok").any()
+    label_cohorts(cfg)
+    readiness = validate_training_readiness(cfg)
+    assert readiness["training_ready"]
+    assert readiness["evaluation_region_level"] == "sido"
+    assert readiness["independent_evaluation_regions"] == 6
+    evaluation = train_model(cfg)
+    model = read_isolation_model(cfg)
+    assert "s5" not in model["training_regions"]
+    assert model["holdout_regions"] == ["s5"]
+    assert evaluation["splits"]["test"]["weak_label_proxy"]["heldout_region_count"] == 1
+    predictions = predict_isolation(cfg)
+    assert predictions.loc[predictions.month.le("202510"), "score"].isna().all()
+    assert predictions.score.notna().any()
+    tools = IsolationQueryTools(cfg)
+    candidates = tools.candidates(region="서울", month="202512")
+    assert not candidates.empty
+    assert set(candidates.province) == {"서울특별시"}
+
+
+def test_scoped_consensus_mapping_excludes_unselected_and_unresolved_blocks(isolation_pipeline):
+    from activity_agent.common.storage import fingerprint, write_json
+    from activity_agent.isolation.training import supported_by_model
+
+    cfg = isolation_pipeline
+    path = cfg.root / "references/block_geography.csv"
+    mapping = pd.read_csv(path, dtype=str)
+    mapping["verified"] = "false"
+    mapping["geo_level"] = "sido"
+    mapping["assignment_status"] = "candidate_crs_agree"
+    mapping.loc[mapping.geo_code.eq("s1"), "assignment_status"] = "unresolved_block"
+    unresolved_in_scope = mapping.geo_code.eq("s2")
+    mapping.loc[unresolved_in_scope, "geo_code"] = "s0"
+    mapping.loc[unresolved_in_scope, "assignment_status"] = "unresolved_block"
+    mapping.to_csv(path, index=False)
+    registry_path = cfg.root / "references/geography.csv"
+    registry = pd.read_csv(registry_path, dtype=str).fillna("")
+    registry["geo_level"] = "sido"
+    registry["province"] = [f"합성시도{i}" for i in range(6)]
+    registry[["district", "dong", "parent_code"]] = ""
+    registry.to_csv(registry_path, index=False)
+    structural = load(cfg, "structural")
+    matching = structural.geo_code.str.startswith("s")
+    structural.loc[matching, "geo_level"] = "sido"
+    from activity_agent.isolation.config import save
+    save(cfg, "structural", structural)
+    cfg.values["isolation"].update(geo_level="sido", region_codes=["s0", "s3"],
+                                   mapping_mode="crs_consensus", min_reference_regions=2,
+                                   min_training_regions=2)
+    write_json(destination(cfg, "spatial_audit.json"), {
+        "candidate_mapping_sha256": fingerprint(path),
+        "input_manifest_sha256": fingerprint(cfg.output / "clean_manifest.json")})
+    cohorts = build_cohorts(cfg)
+    assert set(cohorts.geo_code) == {"s0", "s3"}
+    label_cohorts(cfg)
+    report = train_model(cfg)
+    model = read_isolation_model(cfg)
+    assert model["region_codes"] == ["s0", "s3"]
+    assert model["mapping_mode"] == "crs_consensus"
+    assert all(r["regions"] == 2 for r in model["policy"]["references"])
+    assert len(report["splits"]["test"]["weak_label_proxy"]["by_region"]) == 2
+    outsider = cohorts.loc[cohorts.month.eq("202512")].copy()
+    outsider["geo_code"] = "s2"
+    assert not supported_by_model(model, outsider).any()
+    selection = json.loads(destination(cfg, "spatial_selection.json").read_text(encoding="utf-8"))
+    assert selection["selected_block_year_rows"] == 2
+    assert selection["excluded_block_year_rows"] == 4
+    # A revised candidate file must go through the spatial audit again.
+    mapping.to_csv(path, index=False, encoding="utf-8-sig")
+    with pytest.raises(ValueError, match="Spatial candidate mapping changed"):
+        build_cohorts(cfg)
 
 
 def test_quantile_fit_deduplicates_months_and_ignores_future(isolation_pipeline):

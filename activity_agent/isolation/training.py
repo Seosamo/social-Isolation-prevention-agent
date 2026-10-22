@@ -35,7 +35,8 @@ def supported_by_model(model, cohorts):
     profiles = {tuple(r[col] for col in CATEGORICAL_INPUTS) for r in model["supported_profiles"]}
     supported = pd.Series([tuple(row) in profiles for row in cohorts[CATEGORICAL_INPUTS].itertuples(index=False, name=None)],
                           index=cohorts.index, dtype=bool)
-    return prediction_eligible(cohorts) & supported
+    region_scope = cohorts.geo_code.isin(model["region_codes"]) if model.get("region_codes") else True
+    return prediction_eligible(cohorts) & supported & region_scope
 
 
 def labeled_dataset(config: Config, source="weak"):
@@ -63,22 +64,25 @@ def validate_training_readiness(config: Config, source="weak") -> dict:
     training = training.loc[~training.district_code.isin(cfg["holdout_districts"])]
     validation = validation.loc[~validation.district_code.isin(cfg["holdout_districts"])]
     blockers = []
+    region_level = "sido" if cfg["geo_level"] == "sido" else "sigungu"
     if cohorts.empty:
         blockers.append("No mapped cohorts: supply verified geography and block mappings")
     elif not cohorts.structure_quality.eq("ok").any():
         blockers.append("No exact geography/sex/age structural evidence available under the selected time mode")
     if len(cohorts) and (set(cohorts.geo_level) != {cfg["geo_level"]} or set(cohorts.time_mode) != {cfg["time_mode"]}):
         blockers.append("Cohorts do not match selected geography/time mode; rebuild them")
+    if cfg["region_codes"] and not set(cohorts.geo_code).issubset(cfg["region_codes"]):
+        blockers.append("Cohorts contain regions outside the selected scope; rebuild them")
     if training.label.nunique() != 2:
         blockers.append("Training requires both positive and negative non-abstaining labels")
     if training.district_code.nunique() < cfg["min_training_regions"]:
-        blockers.append(f"Need at least {cfg['min_training_regions']} independent training districts; repeated months/groups do not add districts")
+        blockers.append(f"Need at least {cfg['min_training_regions']} independent training regions ({region_level}); repeated months/groups do not add regions")
     if validation.empty:
         blockers.append("No eligible validation labels")
     if test.empty:
         blockers.append("No eligible test labels")
     if cfg["holdout_districts"] and not cohorts.district_code.isin(cfg["holdout_districts"]).any():
-        blockers.append("Configured holdout districts are absent")
+        blockers.append("Configured holdout regions are absent")
     policy_path = destination(config, "label_reference.json")
     if not policy_path.exists():
         blockers.append("Missing training-only label policy; rerun label --task isolation")
@@ -90,12 +94,23 @@ def validate_training_readiness(config: Config, source="weak") -> dict:
         blockers.append("Labels do not cover the current feature snapshot; rebuild isolation labels")
     breakdown = records(labels.groupby(["geo_level", "sex", "age_band", "label"], dropna=False).size().reset_index(name="rows"))
     result = {"task_id": TASK_ID, "time_mode": cfg["time_mode"], "geo_level": cfg["geo_level"], "label_source": source,
+              "region_codes": cfg["region_codes"], "mapping_mode": cfg["mapping_mode"],
+              "evaluation_scope": "Later months within the selected regions; not unseen-region generalization",
+              "warnings": (["Only two regions: structural quantiles are relative comparisons between those two regions"]
+                           if cohorts.geo_code.nunique() == 2 else [])
+                          + (["Spatial mapping uses agreement between two UTM-K candidates; source datum remains undocumented"]
+                             if cfg["mapping_mode"] == "crs_consensus" else []),
               "training_ready": not blockers, "blockers": blockers, "cohort_rows": len(cohorts),
               "independent_regions": int(cohorts.geo_code.nunique()), "independent_districts": int(cohorts.district_code.nunique()),
+              "evaluation_region_level": region_level, "independent_evaluation_regions": int(cohorts.district_code.nunique()),
               "structure_matching_rows": int(cohorts.structure_quality.eq("ok").sum()),
               "structure_quality": cohorts.structure_quality.value_counts().to_dict(),
               "label_coverage": float(labels.label.ge(0).mean()) if len(labels) else 0,
               "split_rows": {"train": len(training), "validation": len(validation), "test": len(test)},
+              "split_label_counts": {name: {str(k): int(v) for k, v in data.label.value_counts().items()}
+                                     for name, data in (("train", training), ("validation", validation), ("test", test))},
+              "by_region": records(labels.groupby(["geo_code", "province", "month", "label"], dropna=False)
+                                   .size().reset_index(name="rows")),
               "label_breakdown": breakdown,
               "note": "2024 deaths are background only; labels are not independently established isolation outcomes"}
     for name in ("structural_quality", "cohort_manifest"):
@@ -126,9 +141,12 @@ def train_model(config: Config, source="weak") -> dict:
                                                      "policy": policy.to_dict(), "source": source, "seed": config.values["seed"]})
     artifact = {"task_id": TASK_ID, "pipeline": pipeline, "model_version": model_version, "source": source,
                 "inputs": MODEL_INPUTS, "geo_level": cfg["geo_level"], "time_mode": cfg["time_mode"],
+                "region_codes": cfg["region_codes"], "mapping_mode": cfg["mapping_mode"],
                 "train_end": cfg["train_end"], "validation_month": cfg["validation_month"], "test_month": cfg["test_month"],
                 "holdout_districts": cfg["holdout_districts"], "policy": policy.to_dict(),
                 "training_ids": training.cohort_id.tolist(), "training_districts": sorted(training.district_code.unique()),
+                "evaluation_region_level": "sido" if cfg["geo_level"] == "sido" else "sigungu",
+                "training_regions": sorted(training.district_code.unique()), "holdout_regions": cfg["holdout_regions"],
                 "supported_profiles": records(training[CATEGORICAL_INPUTS].drop_duplicates().sort_values(CATEGORICAL_INPUTS)),
                 "feature_versions": sorted(training.feature_version.unique())}
     path = destination(config, "models/logistic.pkl")
@@ -162,6 +180,7 @@ def evaluate_model(config: Config):
     rule = policy.label(cohorts)
     independent = isolation_reviews(config, independent_only=True)
     result = {"task_id": TASK_ID, "model_version": model["model_version"], "time_mode": model["time_mode"],
+              "region_codes": model.get("region_codes", []), "mapping_mode": model.get("mapping_mode", "verified"),
               "label_source": model["source"], "splits": {},
               "note": "Weak-label agreement is not validated isolation detection performance; retrospective data are not historical real-time forecasts"}
     for name in ("validation", "test"):
@@ -171,6 +190,8 @@ def evaluate_model(config: Config):
         if set(sample.cohort_id) & set(model["training_ids"]):
             raise ValueError("Training/evaluation cohorts overlap")
         split_result = {"eligible_rows": len(sample), "independent_districts": int(sample.district_code.nunique()),
+                        "evaluation_region_level": "sido" if model["geo_level"] == "sido" else "sigungu",
+                        "independent_evaluation_regions": int(sample.district_code.nunique()),
                         "weak_label_coverage": float(sample.label.ge(0).mean()) if len(sample) else 0}
         for label_source in ("weak_label_proxy", "independent_review"):
             if label_source == "weak_label_proxy":
@@ -188,12 +209,17 @@ def evaluate_model(config: Config):
             rule_metrics = metrics(data.loc[covered, "truth"], data.loc[covered, "label"].astype(float))
             details = {"model": metrics(data.truth, scores), "rule_baseline": rule_metrics,
                        "rule_coverage": float(covered.mean()),
+                       "by_region": [{"geo_code": code, "province": part.province.iloc[0],
+                                      **metrics(part.truth, scores[data.index.get_indexer(part.index)])}
+                                     for code, part in data.groupby("geo_code")],
                        "by_group": [{"sex": sex, "age_band": age, **metrics(part.truth, scores[data.index.get_indexer(part.index)])}
                                     for (sex, age), part in data.groupby(["sex", "age_band"])]}
             if name == "test" and model["holdout_districts"]:
                 held = data.district_code.isin(model["holdout_districts"])
                 details["heldout_districts"] = metrics(data.loc[held, "truth"], scores[held])
                 details["heldout_district_count"] = int(data.loc[held, "district_code"].nunique())
+                details["heldout_regions"] = details["heldout_districts"]
+                details["heldout_region_count"] = details["heldout_district_count"]
             split_result[label_source] = details
         result["splits"][name] = split_result
     report_json(config, "evaluation", result)

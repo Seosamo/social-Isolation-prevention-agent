@@ -1,0 +1,190 @@
+{
+  "input_features": [
+    "activity_decline",
+    "previous_activity_decline",
+    "daytime_decline",
+    "previous_daytime_decline",
+    "weekend_decline",
+    "previous_weekend_decline"
+  ],
+  "normalization": "N2",
+  "unit": "block/sex/age/month",
+  "seed": 42,
+  "threshold": 0.5687383882316075,
+  "threshold_source": "held-out October block calibration 95%",
+  "scaler": [
+    {
+      "geo_code": "11",
+      "feature": "activity_decline",
+      "training_rows": 17571,
+      "iqr": 0.09766527877026199,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.09766527877026199
+    },
+    {
+      "geo_code": "11",
+      "feature": "previous_activity_decline",
+      "training_rows": 17571,
+      "iqr": 0.08430924180999161,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.08430924180999161
+    },
+    {
+      "geo_code": "11",
+      "feature": "daytime_decline",
+      "training_rows": 17571,
+      "iqr": 0.09458373744059945,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.09458373744059945
+    },
+    {
+      "geo_code": "11",
+      "feature": "previous_daytime_decline",
+      "training_rows": 17571,
+      "iqr": 0.06327631508204218,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.06327631508204218
+    },
+    {
+      "geo_code": "11",
+      "feature": "weekend_decline",
+      "training_rows": 17571,
+      "iqr": 0.07684357480735782,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.07684357480735782
+    },
+    {
+      "geo_code": "11",
+      "feature": "previous_weekend_decline",
+      "training_rows": 17571,
+      "iqr": 0.05700899614307142,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.05700899614307142
+    },
+    {
+      "geo_code": "32",
+      "feature": "activity_decline",
+      "training_rows": 6408,
+      "iqr": 0.10581216881166725,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.10581216881166725
+    },
+    {
+      "geo_code": "32",
+      "feature": "previous_activity_decline",
+      "training_rows": 6408,
+      "iqr": 0.12042620003631471,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.12042620003631471
+    },
+    {
+      "geo_code": "32",
+      "feature": "daytime_decline",
+      "training_rows": 6408,
+      "iqr": 0.09777206157284168,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.09777206157284168
+    },
+    {
+      "geo_code": "32",
+      "feature": "previous_daytime_decline",
+      "training_rows": 6408,
+      "iqr": 0.13228399721682738,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.13228399721682738
+    },
+    {
+      "geo_code": "32",
+      "feature": "weekend_decline",
+      "training_rows": 6408,
+      "iqr": 0.08732401825452007,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.08732401825452007
+    },
+    {
+      "geo_code": "32",
+      "feature": "previous_weekend_decline",
+      "training_rows": 6408,
+      "iqr": 0.11392541817405932,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.11392541817405932
+    }
+  ],
+  "fitted_normalization": {
+    "keys": [
+      "geo_code"
+    ],
+    "global_median": {
+      "activity_decline": 0.040384072295961415,
+      "previous_activity_decline": -0.02723774018186842,
+      "daytime_decline": 0.03282993746428975,
+      "previous_daytime_decline": -0.037752158167474015,
+      "weekend_decline": 0.02764669152050936,
+      "previous_weekend_decline": -0.0582814392283606
+    },
+    "global_scale": {
+      "activity_decline": 0.09957993748413269,
+      "previous_activity_decline": 0.09096598355839558,
+      "daytime_decline": 0.0974852727925769,
+      "previous_daytime_decline": 0.07503579832226936,
+      "weekend_decline": 0.07881585568504534,
+      "previous_weekend_decline": 0.06751270747541205
+    },
+    "profiles": [
+      {
+        "key": [
+          "11"
+        ],
+        "median": {
+          "activity_decline": 0.04470054789344413,
+          "previous_activity_decline": -0.028541114058355355,
+          "daytime_decline": 0.042403123814989785,
+          "previous_daytime_decline": -0.037085593484210255,
+          "weekend_decline": 0.035647851012216236,
+          "previous_weekend_decline": -0.06028402295794866
+        },
+        "scale": {
+          "activity_decline": 0.09766527877026199,
+          "previous_activity_decline": 0.08430924180999161,
+          "daytime_decline": 0.09458373744059945,
+          "previous_daytime_decline": 0.06327631508204218,
+          "weekend_decline": 0.07684357480735782,
+          "previous_weekend_decline": 0.05700899614307142
+        }
+      },
+      {
+        "key": [
+          "32"
+        ],
+        "median": {
+          "activity_decline": 0.03015077427166074,
+          "previous_activity_decline": -0.022662358125743687,
+          "daytime_decline": 0.007751937984496027,
+          "previous_daytime_decline": -0.04374288916507996,
+          "weekend_decline": 0.00737439769476711,
+          "previous_weekend_decline": -0.04419175657766261
+        },
+        "scale": {
+          "activity_decline": 0.10581216881166725,
+          "previous_activity_decline": 0.12042620003631471,
+          "daytime_decline": 0.09777206157284168,
+          "previous_daytime_decline": 0.13228399721682738,
+          "weekend_decline": 0.08732401825452007,
+          "previous_weekend_decline": 0.11392541817405932
+        }
+      }
+    ]
+  }
+}

@@ -10,13 +10,14 @@ import pandas as pd
 
 from activity_agent.common.config import Config
 from activity_agent.common.storage import fingerprint
-from activity_agent.isolation.config import reference_path, report_json, save
+from activity_agent.isolation.config import reference_path, report_json, save, settings
 
 PROVINCES = ["서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시",
              "울산광역시", "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도",
              "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도"]
-ALIASES = {"서울": "서울특별시", "강원": "강원특별자치도", "강원도": "강원특별자치도",
-           "전라북도": "전북특별자치도"}
+ALIASES = dict(zip(["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원",
+                    "충북", "충남", "전북", "전남", "경북", "경남", "제주"], PROVINCES)) | {
+           "강원도": "강원특별자치도", "전라북도": "전북특별자치도"}
 NAMES = ["province", "district", "dong"]
 STRUCTURAL_COLUMNS = ["source_id", "reference_period", "available_at", "source_url", "source_hash", "geo_level", "geo_code",
                       *NAMES, "raw_geography", "sex", "age_band", "metric", "value", "denominator_kind", "quality", "mapping_quality"]
@@ -266,8 +267,8 @@ def load_structural_sources(config: Config) -> pd.DataFrame:
                          "sha256": source["source_hash"], "rows": len(part), "reference_period": source["reference_period"],
                          "available_at": available or None, "geo_levels": part.geo_level.value_counts().to_dict(),
                          "quality": part.quality.value_counts().to_dict(), "mapped_rows": int(part.geo_code.ne("").sum())})
-        if source["source_id"] == "single_households" and not part.geo_level.isin(["sigungu", "dong"]).any():
-            warnings.append("single_households contains no district/dong observations; filename does not establish geographic scope")
+        if source["source_id"] == "single_households" and not part.geo_level.eq(settings(config)["geo_level"]).any():
+            warnings.append("single_households contains no observations at the selected geography level")
         if part.geo_level.eq("unresolved").any():
             warnings.append(f"{source['source_id']} contains nested province hierarchies; verify boundary vintage/crosswalk before use")
     frame = pd.concat(outputs, ignore_index=True) if outputs else pd.DataFrame(columns=STRUCTURAL_COLUMNS)

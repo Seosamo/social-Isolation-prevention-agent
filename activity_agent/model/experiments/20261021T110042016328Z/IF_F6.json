@@ -1,0 +1,190 @@
+{
+  "input_features": [
+    "daytime_decline",
+    "previous_daytime_decline",
+    "weekend_decline",
+    "previous_weekend_decline",
+    "hourly_jsd",
+    "weekly_jsd"
+  ],
+  "normalization": "N0",
+  "unit": "block/month",
+  "seed": 42,
+  "threshold": 0.5601483713984363,
+  "threshold_source": "held-out October block calibration 95%",
+  "scaler": [
+    {
+      "geo_code": "11",
+      "feature": "daytime_decline",
+      "training_rows": 1405,
+      "iqr": 0.09435715584783033,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.09435715584783033
+    },
+    {
+      "geo_code": "11",
+      "feature": "previous_daytime_decline",
+      "training_rows": 1405,
+      "iqr": 0.06243398389388788,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.06243398389388788
+    },
+    {
+      "geo_code": "11",
+      "feature": "weekend_decline",
+      "training_rows": 1405,
+      "iqr": 0.07702292670184463,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.07702292670184463
+    },
+    {
+      "geo_code": "11",
+      "feature": "previous_weekend_decline",
+      "training_rows": 1405,
+      "iqr": 0.057222913918405505,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.057222913918405505
+    },
+    {
+      "geo_code": "11",
+      "feature": "hourly_jsd",
+      "training_rows": 1405,
+      "iqr": 0.00018349530685508772,
+      "iqr_near_zero": true,
+      "fallback": false,
+      "scale": 0.001
+    },
+    {
+      "geo_code": "11",
+      "feature": "weekly_jsd",
+      "training_rows": 1405,
+      "iqr": 0.00010747856731083973,
+      "iqr_near_zero": true,
+      "fallback": false,
+      "scale": 0.001
+    },
+    {
+      "geo_code": "32",
+      "feature": "daytime_decline",
+      "training_rows": 506,
+      "iqr": 0.09744383222452338,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.09744383222452338
+    },
+    {
+      "geo_code": "32",
+      "feature": "previous_daytime_decline",
+      "training_rows": 506,
+      "iqr": 0.13269239453036694,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.13269239453036694
+    },
+    {
+      "geo_code": "32",
+      "feature": "weekend_decline",
+      "training_rows": 506,
+      "iqr": 0.08828056215697061,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.08828056215697061
+    },
+    {
+      "geo_code": "32",
+      "feature": "previous_weekend_decline",
+      "training_rows": 506,
+      "iqr": 0.11639819212194752,
+      "iqr_near_zero": false,
+      "fallback": false,
+      "scale": 0.11639819212194752
+    },
+    {
+      "geo_code": "32",
+      "feature": "hourly_jsd",
+      "training_rows": 506,
+      "iqr": 0.0003458813061081872,
+      "iqr_near_zero": true,
+      "fallback": false,
+      "scale": 0.001
+    },
+    {
+      "geo_code": "32",
+      "feature": "weekly_jsd",
+      "training_rows": 506,
+      "iqr": 0.000499837473279175,
+      "iqr_near_zero": true,
+      "fallback": false,
+      "scale": 0.001
+    }
+  ],
+  "fitted_normalization": {
+    "keys": [
+      "geo_code"
+    ],
+    "global_median": {
+      "daytime_decline": 0.03061366390527842,
+      "previous_daytime_decline": -0.03906079741970547,
+      "weekend_decline": 0.027428677217587905,
+      "previous_weekend_decline": -0.05893274467154952,
+      "hourly_jsd": 0.00025134742661352745,
+      "weekly_jsd": 0.00021097419089115925
+    },
+    "global_scale": {
+      "daytime_decline": 0.0968863909222572,
+      "previous_daytime_decline": 0.07392125339926114,
+      "weekend_decline": 0.07913858876864682,
+      "previous_weekend_decline": 0.06800046206656152,
+      "hourly_jsd": 0.001,
+      "weekly_jsd": 0.001
+    },
+    "profiles": [
+      {
+        "key": [
+          "11"
+        ],
+        "median": {
+          "daytime_decline": 0.04080309233781765,
+          "previous_daytime_decline": -0.03802365102401972,
+          "weekend_decline": 0.03568567475056428,
+          "previous_weekend_decline": -0.06084577839644001,
+          "hourly_jsd": 0.00019994675857799648,
+          "weekly_jsd": 0.000209189756964724
+        },
+        "scale": {
+          "daytime_decline": 0.09435715584783033,
+          "previous_daytime_decline": 0.06243398389388788,
+          "weekend_decline": 0.07702292670184463,
+          "previous_weekend_decline": 0.057222913918405505,
+          "hourly_jsd": 0.001,
+          "weekly_jsd": 0.001
+        }
+      },
+      {
+        "key": [
+          "32"
+        ],
+        "median": {
+          "daytime_decline": 0.006366068710647821,
+          "previous_daytime_decline": -0.046138335774041805,
+          "weekend_decline": 0.007227000616148838,
+          "previous_weekend_decline": -0.04552379428972164,
+          "hourly_jsd": 0.0004441074225365534,
+          "weekly_jsd": 0.00024282018619463744
+        },
+        "scale": {
+          "daytime_decline": 0.09744383222452338,
+          "previous_daytime_decline": 0.13269239453036694,
+          "weekend_decline": 0.08828056215697061,
+          "previous_weekend_decline": 0.11639819212194752,
+          "hourly_jsd": 0.001,
+          "weekly_jsd": 0.001
+        }
+      }
+    ]
+  }
+}

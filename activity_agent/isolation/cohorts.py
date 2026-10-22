@@ -9,7 +9,7 @@ import pandas as pd
 from activity_agent.common.config import Config
 from activity_agent.data.aggregation import compare_skt_window, previous_month
 from activity_agent.isolation.config import TASK_ID, destination, load, reference_path, report_json, save, settings
-from activity_agent.common.storage import digest
+from activity_agent.common.storage import digest, fingerprint
 from activity_agent.isolation.structural import province_name, read_geography
 
 COHORT_KEY = ["geo_level", "geo_code", "sex", "age_band", "month"]
@@ -31,7 +31,29 @@ def read_block_mapping(config: Config, geography: pd.DataFrame) -> pd.DataFrame:
     frame = pd.read_csv(path, dtype=str).fillna("")
     if not set(columns).issubset(frame):
         raise ValueError("Invalid block geography mapping columns")
-    frame = frame.loc[frame.verified.str.lower().eq("true") & frame.source_url.str.startswith("https://")].copy()
+    input_rows = len(frame)
+    cfg = settings(config)
+    if cfg["mapping_mode"] == "crs_consensus":
+        audit = json.loads(destination(config, "spatial_audit.json").read_text(encoding="utf-8"))
+        if audit.get("candidate_mapping_sha256") != fingerprint(path):
+            raise ValueError("Spatial candidate mapping changed; rerun spatial-audit")
+        manifest = config.output / "clean_manifest.json"
+        if audit.get("input_manifest_sha256") != fingerprint(manifest):
+            raise ValueError("Clean manifest changed; rerun spatial-audit")
+        if "assignment_status" not in frame:
+            raise ValueError("CRS consensus mapping requires assignment_status")
+        frame = frame.loc[frame.assignment_status.eq("candidate_crs_agree") & frame.geo_level.eq("sido")].copy()
+    else:
+        frame = frame.loc[frame.verified.str.lower().eq("true")].copy()
+    frame = frame.loc[frame.source_url.str.startswith("https://")].copy()
+    if cfg["region_codes"]:
+        frame = frame.loc[frame.geo_code.isin(cfg["region_codes"])].copy()
+    report_json(config, "spatial_selection", {
+        "mapping_mode": cfg["mapping_mode"], "region_codes": cfg["region_codes"],
+        "input_block_year_rows": input_rows, "selected_block_year_rows": len(frame),
+        "excluded_block_year_rows": input_rows - len(frame),
+        "selected_by_region": frame.geo_code.value_counts().to_dict(),
+        "note": "CRS consensus is an explicitly selected experimental mapping mode, not verified source CRS"})
     if frame.duplicated(["block_code", "geo_level", "reference_year"]).any():
         raise ValueError("Each block requires one verified target per level/year")
     check = frame.merge(geography[["geo_level", "geo_code", "reference_year"]], on=["geo_level", "geo_code", "reference_year"],
@@ -154,7 +176,7 @@ def build_cohorts(config: Config) -> pd.DataFrame:
     if mapping.loc[mapping.geo_level.eq(cfg["geo_level"])].empty:
         save(config, "cohorts", pd.DataFrame(columns=BASE_COLUMNS))
         report_json(config, "cohort_manifest", {"rows": 0, "time_mode": cfg["time_mode"], "geo_level": cfg["geo_level"],
-                    "mapping_coverage": [], "warnings": ["No verified block mapping for the selected geography level"]})
+                    "mapping_coverage": [], "warnings": ["No accepted block mapping for the selected geography level and region scope"]})
         print("Cohorts: 0 rows; verified block mapping is required", flush=True)
         return pd.DataFrame(columns=BASE_COLUMNS)
     activity, coverage = aggregate_activity(config, mapping)
@@ -182,7 +204,8 @@ def build_cohorts(config: Config) -> pd.DataFrame:
     cohorts["reference_year"] = cohorts.month.str[:4]
     meta = geography.loc[geography.geo_level.eq(cfg["geo_level"]), ["geo_level", "geo_code", "reference_year", *["province", "district", "dong"], "parent_code"]]
     cohorts = cohorts.merge(meta, on=["geo_level", "geo_code", "reference_year"], validate="many_to_one")
-    cohorts["district_code"] = cohorts.geo_code if cfg["geo_level"] == "sigungu" else cohorts.parent_code
+    # Legacy column name: evaluation groups are provinces for sido, districts otherwise.
+    cohorts["district_code"] = cohorts.parent_code if cfg["geo_level"] == "dong" else cohorts.geo_code
     if cfg["geo_level"] == "dong":
         district_rows = geography.loc[geography.geo_level.eq("sigungu")]
         district_keys = {(r.geo_code, r.reference_year): (r.province, r.district) for r in district_rows.itertuples()}
@@ -201,7 +224,8 @@ def build_cohorts(config: Config) -> pd.DataFrame:
     raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
     signature = {"sources": structural_signature, "activity_sources": [{k: f.get(k) for k in ("file", "sha256")} for f in raw_manifest.get("files", [])],
                  "geography": geography.to_dict("records"), "block_mapping": mapping.to_dict("records"),
-                 "geo_level": cfg["geo_level"], "time_mode": cfg["time_mode"], "algorithm": "cohorts-v1"}
+                 "geo_level": cfg["geo_level"], "time_mode": cfg["time_mode"],
+                 "mapping_mode": cfg["mapping_mode"], "region_codes": cfg["region_codes"], "algorithm": "cohorts-v2"}
     for col in BASE_COLUMNS:
         if col not in cohorts:
             cohorts[col] = "missing" if "quality" in col else np.nan
@@ -213,8 +237,12 @@ def build_cohorts(config: Config) -> pd.DataFrame:
                                           "data": records(cohorts.drop(columns="feature_version"))})
     save(config, "cohorts", cohorts)
     report_json(config, "cohort_manifest", {"rows": len(cohorts), "feature_version": cohorts.feature_version.unique().tolist(),
+                "region_codes": cfg["region_codes"], "mapping_mode": cfg["mapping_mode"],
+                "scope_note": "Only mapped observed grids in the selected regions; no national or whole-province representativeness claim",
                 "geo_level": cfg["geo_level"], "time_mode": cfg["time_mode"], "independent_regions": int(cohorts.geo_code.nunique()),
-                "independent_districts": int(cohorts.district_code.nunique()), "mapping_coverage": coverage,
+                "independent_districts": int(cohorts.district_code.nunique()),
+                "evaluation_region_level": "sido" if cfg["geo_level"] == "sido" else "sigungu",
+                "independent_evaluation_regions": int(cohorts.district_code.nunique()), "mapping_coverage": coverage,
                 "warnings": ["Retrospective annual statistics are not contemporaneous forecast inputs"] if cfg["time_mode"] == "retrospective" else []})
     print(f"Cohorts: {len(cohorts):,} rows", flush=True)
     return cohorts

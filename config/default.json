@@ -26,10 +26,21 @@
     "max_age_days": 7
   },
   "isolation": {
-    "geo_level": "sigungu",
+    "method": "isolation_forest",
+    "anomaly": {
+      "n_estimators": 200,
+      "reference_quantile": 0.95,
+      "baseline_quantile": 0.1,
+      "min_baseline_flow": 1.0,
+      "minimum_decline": 0.1,
+      "stability_seeds": [42, 43, 44]
+    },
+    "geo_level": "sido",
     "time_mode": "retrospective",
     "geography_file": "references/geography.csv",
-    "block_mapping_file": "references/block_geography.csv",
+    "block_mapping_file": "artifacts/isolation/block_geography_candidates.csv",
+    "mapping_mode": "crs_consensus",
+    "region_codes": ["11", "32"],
     "sources_file": "references/structural_sources.csv",
     "train_end": "202510",
     "validation_month": "202511",
@@ -37,8 +48,8 @@
     "suspect_decline": 0.2,
     "stable_change": 0.1,
     "structural_quantile": 0.75,
-    "min_reference_regions": 5,
-    "min_training_regions": 3,
-    "holdout_districts": []
+    "min_reference_regions": 2,
+    "min_training_regions": 2,
+    "holdout_regions": []
   }
 }

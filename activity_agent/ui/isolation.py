@@ -12,6 +12,9 @@ from activity_agent.isolation.labeling import LABEL_NAMES, isolation_reviews, re
 
 
 def render_isolation_dashboard(config: Config):
+    if config.values.get("isolation", {}).get("method") == "isolation_forest":
+        render_anomaly_dashboard(config)
+        return
     st.title("고립 의심 라벨 · 학습 근거")
     st.caption("지역·집단에 대한 약한 라벨입니다. 고독사 통계는 별도 배경으로만 제공하며 판정·학습에 사용하지 않습니다.")
     readiness_path = destination(config, "readiness.json")
@@ -19,10 +22,15 @@ def render_isolation_dashboard(config: Config):
         readiness = json.loads(readiness_path.read_text(encoding="utf-8"))
         a, b, c = st.columns(3)
         a.metric("분석 표본", f"{readiness['cohort_rows']:,}")
-        b.metric("독립 시군구", readiness["independent_districts"])
+        b.metric("독립 시도" if readiness["geo_level"] == "sido" else "독립 시군구", readiness["independent_districts"])
         c.metric("학습 준비", "완료" if readiness["training_ready"] else "자료 보완 필요")
         for reason in readiness["blockers"]:
             st.warning(reason)
+        if readiness.get("region_codes"):
+            provinces = sorted({row["province"] for row in readiness.get("by_region", [])})
+            st.caption("학습·평가 범위: " + ", ".join(provinces or readiness["region_codes"]))
+        for warning in readiness.get("warnings", []):
+            st.caption(warning)
     if not destination(config, "labels.parquet").exists():
         st.info("먼저 python -m activity_agent run-isolation 을 실행해 주세요.")
         return
@@ -47,7 +55,7 @@ def render_isolation_dashboard(config: Config):
             st.dataframe(selected[columns].sort_values("label_name"), hide_index=True)
             st.download_button("고립 라벨 CSV", selected.to_csv(index=False).encode("utf-8-sig"), "isolation_labels.csv")
             if not selected.empty:
-                names = {r.cohort_id: f"{r.district} {r.dong} / {r.sex} / {r.age_band} / {r.label_name}" for r in selected.itertuples()}
+                names = {r.cohort_id: f"{r.province} {r.district} {r.dong} / {r.sex} / {r.age_band} / {r.label_name}" for r in selected.itertuples()}
                 chosen = st.selectbox("고립 상세 대상", list(names), format_func=names.get, key="iso_cohort")
                 row = selected.loc[selected.cohort_id.eq(chosen)].iloc[0]
                 st.dataframe(row.dropna().astype(str).rename("값"))
@@ -82,3 +90,55 @@ def render_isolation_dashboard(config: Config):
             if path.exists():
                 with st.expander(name):
                     st.json(json.loads(path.read_text(encoding="utf-8")))
+
+
+def render_anomaly_dashboard(config: Config):
+    st.title("서울·강원 활동 위축 이상 탐색")
+    st.caption("비지도 모델로 활동 패턴의 이상을 탐색합니다. 점수는 고립 확률이 아니며, 관측 소지역에 한정됩니다.")
+    path = destination(config, "anomaly/detections.parquet")
+    if not path.exists():
+        st.info("먼저 python -m activity_agent run-isolation 으로 활동 이상 모델을 학습해 주세요.")
+        return
+    from activity_agent.isolation.anomaly import read_model
+    try:
+        model = read_model(config)
+    except ValueError as error:
+        st.error(str(error))
+        return
+    data = load(config, "anomaly/detections")
+    months = sorted(data.loc[data.month.gt(model["train_end"]), "month"].unique(), reverse=True)
+    if not months:
+        st.info("학습 종료 이후의 자료가 없습니다.")
+        return
+    a, b, c = st.columns(3)
+    a.metric("학습 관측 행", f"{model['training_rows']:,}")
+    b.metric("학습 소지역", f"{model['training_blocks']:,}")
+    c.metric("유효 학습 월", len(model["training_months"]))
+    st.caption("성·연령별 반복 행은 독립 지역 수나 사람 수가 아닙니다. 한 달의 학습 분포를 비교하며 계절성을 학습한 모델은 아닙니다.")
+    month = st.selectbox("활동 이상 분석 월", months, key="anomaly_month")
+    province = st.selectbox("분석 지역", ["전체", *sorted(data.province.unique())], key="anomaly_region")
+    sex = st.selectbox("분석 성별", ["전체", *sorted(data.sex.unique())], key="anomaly_sex")
+    age = st.selectbox("분석 연령", ["전체", *sorted(data.age_band.unique())], key="anomaly_age")
+    selected = data.loc[data.month.eq(month)].copy()
+    for column, value in (("province", province), ("sex", sex), ("age_band", age)):
+        if value != "전체":
+            selected = selected.loc[selected[column].eq(value)]
+    candidates = selected.loc[selected.candidate].sort_values("anomaly_raw", ascending=False)
+    st.metric("위축 이상 후보 소지역", candidates.block_code.nunique())
+    params = model["anomaly_settings"]
+    st.caption(f"학습 이상 점수의 상위 {1-params['reference_quantile']:.0%} 기준을 고정 적용하고, 현재 유동 {params['minimum_decline']:.0%} 이상 감소 및 낮·주말 감소 근거가 있는 후보입니다. 실제 이상 비율을 가정하지 않습니다.")
+    columns = ["province", "block_code", "sex", "age_band", "anomaly_percentile", "anomaly_raw", "activity_decline",
+               "previous_activity_decline", "daytime_decline", "weekend_decline", "persistent_20pct",
+               "baseline_flow", "province_structure_context"]
+    st.dataframe(candidates[columns], hide_index=True)
+    st.download_button("활동 이상 후보 CSV", candidates.to_csv(index=False).encode("utf-8-sig"), "activity_anomaly_candidates.csv")
+    st.caption("시도 1인가구 구성비는 설명용 배경이며 이상 탐지 입력에 사용하지 않습니다.")
+    with st.expander("활동 변화·후보 설명 질의"):
+        question = st.text_input("활동 위축 이상 질문", placeholder="2025년 12월 강원 활동 이상 후보와 근거")
+        if st.button("활동 이상 근거 조회"):
+            from activity_agent.llm.vllm import create_isolation_agent
+            st.markdown(create_isolation_agent(config, st.session_state.get("agent_backend")).answer(question))
+    evaluation = destination(config, "anomaly/evaluation.json")
+    if evaluation.exists():
+        with st.expander("후보 분포·설정 안정성 점검"):
+            st.json(json.loads(evaluation.read_text(encoding="utf-8")))

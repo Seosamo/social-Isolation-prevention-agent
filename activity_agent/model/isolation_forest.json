@@ -1,0 +1,596 @@
+{
+  "task_id": "local_activity_anomaly_v1",
+  "profiles": [
+    {
+      "geo_code": "11",
+      "sex": "남성",
+      "age_band": "10",
+      "baseline_cutoff": 9.082,
+      "median": {
+        "activity_decline": 0.014589623449561826,
+        "previous_activity_decline": 0.04074256156908401,
+        "daytime_decline": 0.04309165995008419,
+        "previous_daytime_decline": -0.035391867704287705,
+        "weekend_decline": 0.034464980793733474,
+        "previous_weekend_decline": -0.05940143264528014
+      },
+      "scale": {
+        "activity_decline": 0.08146900639084989,
+        "previous_activity_decline": 0.09011190842114344,
+        "daytime_decline": 0.0945708505580393,
+        "previous_daytime_decline": 0.06606757296882272,
+        "weekend_decline": 0.07725622861014281,
+        "previous_weekend_decline": 0.05809156530248431
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "남성",
+      "age_band": "20",
+      "baseline_cutoff": 13.364,
+      "median": {
+        "activity_decline": 0.03244886215959552,
+        "previous_activity_decline": 0.023786056188599282,
+        "daytime_decline": 0.0423511358286507,
+        "previous_daytime_decline": -0.03721475770758822,
+        "weekend_decline": 0.03509388565328064,
+        "previous_weekend_decline": -0.060850578483182476
+      },
+      "scale": {
+        "activity_decline": 0.10574817516916185,
+        "previous_activity_decline": 0.07975843584404636,
+        "daytime_decline": 0.09452216944914564,
+        "previous_daytime_decline": 0.06259729116732472,
+        "weekend_decline": 0.0764180214851495,
+        "previous_weekend_decline": 0.05706008282808844
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "남성",
+      "age_band": "30",
+      "baseline_cutoff": 18.7335,
+      "median": {
+        "activity_decline": 0.06260208947011316,
+        "previous_activity_decline": -0.04560070607251087,
+        "daytime_decline": 0.042620844633235684,
+        "previous_daytime_decline": -0.03775637261532585,
+        "weekend_decline": 0.035418524944690694,
+        "previous_weekend_decline": -0.06119196773144661
+      },
+      "scale": {
+        "activity_decline": 0.09136452863149536,
+        "previous_activity_decline": 0.05379501961989782,
+        "daytime_decline": 0.09422639095144505,
+        "previous_daytime_decline": 0.061270341555059143,
+        "weekend_decline": 0.0765033233949172,
+        "previous_weekend_decline": 0.05656715400382815
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "남성",
+      "age_band": "40",
+      "baseline_cutoff": 25.762,
+      "median": {
+        "activity_decline": 0.0705715299964503,
+        "previous_activity_decline": -0.041499713795077275,
+        "daytime_decline": 0.04221894943544429,
+        "previous_daytime_decline": -0.037133283184025215,
+        "weekend_decline": 0.03479164014286009,
+        "previous_weekend_decline": -0.06036134389175066
+      },
+      "scale": {
+        "activity_decline": 0.09374958918741194,
+        "previous_activity_decline": 0.0516977137199902,
+        "daytime_decline": 0.09420168479715485,
+        "previous_daytime_decline": 0.0627276293896984,
+        "weekend_decline": 0.0765674960894113,
+        "previous_weekend_decline": 0.057054478455928634
+      },
+      "training_rows": 1831
+    },
+    {
+      "geo_code": "11",
+      "sex": "남성",
+      "age_band": "50",
+      "baseline_cutoff": 23.469,
+      "median": {
+        "activity_decline": 0.06423539162867788,
+        "previous_activity_decline": -0.034413141231531615,
+        "daytime_decline": 0.04225987124962238,
+        "previous_daytime_decline": -0.03698111201201604,
+        "weekend_decline": 0.034917172104619656,
+        "previous_weekend_decline": -0.06036134389175066
+      },
+      "scale": {
+        "activity_decline": 0.09657785887750488,
+        "previous_activity_decline": 0.057392249337383516,
+        "daytime_decline": 0.09432264052692584,
+        "previous_daytime_decline": 0.06341009625170188,
+        "weekend_decline": 0.07674675842957061,
+        "previous_weekend_decline": 0.05699167847033072
+      },
+      "training_rows": 1831
+    },
+    {
+      "geo_code": "11",
+      "sex": "남성",
+      "age_band": "60+",
+      "baseline_cutoff": 24.6785,
+      "median": {
+        "activity_decline": 0.04822946184960013,
+        "previous_activity_decline": -0.045118592783609204,
+        "daytime_decline": 0.0423511358286507,
+        "previous_daytime_decline": -0.03717171733215517,
+        "weekend_decline": 0.03485440612373987,
+        "previous_weekend_decline": -0.060872979431911056
+      },
+      "scale": {
+        "activity_decline": 0.08710009776400385,
+        "previous_activity_decline": 0.05909909039227114,
+        "daytime_decline": 0.09453833512139886,
+        "previous_daytime_decline": 0.06343089655352019,
+        "weekend_decline": 0.07636996159343762,
+        "previous_weekend_decline": 0.05714379551670567
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "여성",
+      "age_band": "10",
+      "baseline_cutoff": 9.947,
+      "median": {
+        "activity_decline": 0.03754593060748841,
+        "previous_activity_decline": 0.040949792113652655,
+        "daytime_decline": 0.04241728218544873,
+        "previous_daytime_decline": -0.03557074344511511,
+        "weekend_decline": 0.034009530398382115,
+        "previous_weekend_decline": -0.059510122173053376
+      },
+      "scale": {
+        "activity_decline": 0.08767342641767362,
+        "previous_activity_decline": 0.10175771228009223,
+        "daytime_decline": 0.0942325434253388,
+        "previous_daytime_decline": 0.06523924618338454,
+        "weekend_decline": 0.07727359912945461,
+        "previous_weekend_decline": 0.058329469423691396
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "여성",
+      "age_band": "20",
+      "baseline_cutoff": 15.011,
+      "median": {
+        "activity_decline": 0.05013256140079668,
+        "previous_activity_decline": -0.010029580964734417,
+        "daytime_decline": 0.0423511358286507,
+        "previous_daytime_decline": -0.03789164449102578,
+        "weekend_decline": 0.03509388565328064,
+        "previous_weekend_decline": -0.061241504748115586
+      },
+      "scale": {
+        "activity_decline": 0.11997499066278482,
+        "previous_activity_decline": 0.08647974879330594,
+        "daytime_decline": 0.09438612126240506,
+        "previous_daytime_decline": 0.0613463485987517,
+        "weekend_decline": 0.07678880826552581,
+        "previous_weekend_decline": 0.0570679316383442
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "여성",
+      "age_band": "30",
+      "baseline_cutoff": 18.663,
+      "median": {
+        "activity_decline": 0.06274312345228589,
+        "previous_activity_decline": -0.05259165976350205,
+        "daytime_decline": 0.04223941034253334,
+        "previous_daytime_decline": -0.037574729328113954,
+        "weekend_decline": 0.03530247785473746,
+        "previous_weekend_decline": -0.060868680465138915
+      },
+      "scale": {
+        "activity_decline": 0.10505339402172703,
+        "previous_activity_decline": 0.058325250903114134,
+        "daytime_decline": 0.09445927640880453,
+        "previous_daytime_decline": 0.06141935294892324,
+        "weekend_decline": 0.07651766444594185,
+        "previous_weekend_decline": 0.05677567517258049
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "여성",
+      "age_band": "40",
+      "baseline_cutoff": 23.836000000000002,
+      "median": {
+        "activity_decline": 0.052467060328625054,
+        "previous_activity_decline": -0.03805817248565213,
+        "daytime_decline": 0.04145993885263575,
+        "previous_daytime_decline": -0.036986552762874325,
+        "weekend_decline": 0.034443037465534426,
+        "previous_weekend_decline": -0.06017693486775018
+      },
+      "scale": {
+        "activity_decline": 0.09043579843281131,
+        "previous_activity_decline": 0.05697389687054527,
+        "daytime_decline": 0.09452547275921086,
+        "previous_daytime_decline": 0.06432059686738441,
+        "weekend_decline": 0.07739481170555873,
+        "previous_weekend_decline": 0.05739952324479612
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "여성",
+      "age_band": "50",
+      "baseline_cutoff": 17.9775,
+      "median": {
+        "activity_decline": 0.03942790563434917,
+        "previous_activity_decline": -0.03853041345363767,
+        "daytime_decline": 0.042055913417989574,
+        "previous_daytime_decline": -0.03694101839718794,
+        "weekend_decline": 0.03459491841733042,
+        "previous_weekend_decline": -0.060302213484740255
+      },
+      "scale": {
+        "activity_decline": 0.08829138233851608,
+        "previous_activity_decline": 0.06161656402935135,
+        "daytime_decline": 0.09432854305276434,
+        "previous_daytime_decline": 0.06432605866707052,
+        "weekend_decline": 0.07670370320402305,
+        "previous_weekend_decline": 0.057467945607594426
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "11",
+      "sex": "여성",
+      "age_band": "60+",
+      "baseline_cutoff": 23.272000000000002,
+      "median": {
+        "activity_decline": 0.024901877927101336,
+        "previous_activity_decline": -0.054637032379884196,
+        "daytime_decline": 0.04241728218544873,
+        "previous_daytime_decline": -0.03703912920255302,
+        "weekend_decline": 0.03451128510693559,
+        "previous_weekend_decline": -0.06055193927025285
+      },
+      "scale": {
+        "activity_decline": 0.08280813034115966,
+        "previous_activity_decline": 0.06773961232143041,
+        "daytime_decline": 0.09416801869229109,
+        "previous_daytime_decline": 0.06440221081015074,
+        "weekend_decline": 0.07652098848656039,
+        "previous_weekend_decline": 0.057611575815964704
+      },
+      "training_rows": 1830
+    },
+    {
+      "geo_code": "32",
+      "sex": "남성",
+      "age_band": "10",
+      "baseline_cutoff": 12.126500000000002,
+      "median": {
+        "activity_decline": 0.0623806492679822,
+        "previous_activity_decline": -0.07082794307891337,
+        "daytime_decline": 0.00928830061639421,
+        "previous_daytime_decline": -0.045931819233082045,
+        "weekend_decline": 0.004553068012927675,
+        "previous_weekend_decline": -0.04434677588392449
+      },
+      "scale": {
+        "activity_decline": 0.12504607623347105,
+        "previous_activity_decline": 0.22282755843043145,
+        "daytime_decline": 0.10116119184569734,
+        "previous_daytime_decline": 0.1361597913949624,
+        "weekend_decline": 0.08715928413942747,
+        "previous_weekend_decline": 0.11467719078568347
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "남성",
+      "age_band": "20",
+      "baseline_cutoff": 9.874000000000002,
+      "median": {
+        "activity_decline": 0.07799767171129213,
+        "previous_activity_decline": -0.06864754098360674,
+        "daytime_decline": 0.008489943949884728,
+        "previous_daytime_decline": -0.05031938469560688,
+        "weekend_decline": 0.004083488160651432,
+        "previous_weekend_decline": -0.047765587017935686
+      },
+      "scale": {
+        "activity_decline": 0.11582166307357919,
+        "previous_activity_decline": 0.30298350171335475,
+        "daytime_decline": 0.10285188165345632,
+        "previous_daytime_decline": 0.13682027907313005,
+        "weekend_decline": 0.09011927250182072,
+        "previous_weekend_decline": 0.11262722004134233
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "남성",
+      "age_band": "30",
+      "baseline_cutoff": 9.793000000000003,
+      "median": {
+        "activity_decline": -0.00025887270408329503,
+        "previous_activity_decline": 0.0009407337723424072,
+        "daytime_decline": 0.007710870419215449,
+        "previous_daytime_decline": -0.046344852315001586,
+        "weekend_decline": 0.004083488160651432,
+        "previous_weekend_decline": -0.04493873602805961
+      },
+      "scale": {
+        "activity_decline": 0.10587423837587616,
+        "previous_activity_decline": 0.09679455393208986,
+        "daytime_decline": 0.10418401257011178,
+        "previous_daytime_decline": 0.13574327697458233,
+        "weekend_decline": 0.09114638023781019,
+        "previous_weekend_decline": 0.11388782944345129
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "남성",
+      "age_band": "40",
+      "baseline_cutoff": 13.458,
+      "median": {
+        "activity_decline": 0.008131156210748737,
+        "previous_activity_decline": -0.011589895988112945,
+        "daytime_decline": 0.007751937984496039,
+        "previous_daytime_decline": -0.046344852315001586,
+        "weekend_decline": 0.004083488160651432,
+        "previous_weekend_decline": -0.04473690120600987
+      },
+      "scale": {
+        "activity_decline": 0.09097794604472102,
+        "previous_activity_decline": 0.09366819216057856,
+        "daytime_decline": 0.10368747083001487,
+        "previous_daytime_decline": 0.13517129471994221,
+        "weekend_decline": 0.09098410652514759,
+        "previous_weekend_decline": 0.11400623570953611
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "남성",
+      "age_band": "50",
+      "baseline_cutoff": 13.9005,
+      "median": {
+        "activity_decline": 0.02525692388085704,
+        "previous_activity_decline": -0.003693181818181689,
+        "daytime_decline": 0.007710870419215449,
+        "previous_daytime_decline": -0.046344852315001586,
+        "weekend_decline": 0.004083488160651432,
+        "previous_weekend_decline": -0.04473690120600987
+      },
+      "scale": {
+        "activity_decline": 0.07958162568684152,
+        "previous_activity_decline": 0.09122823943132251,
+        "daytime_decline": 0.10354559376655247,
+        "previous_daytime_decline": 0.13517129471994221,
+        "weekend_decline": 0.09044783831826234,
+        "previous_weekend_decline": 0.11400623570953611
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "남성",
+      "age_band": "60+",
+      "baseline_cutoff": 17.296499999999998,
+      "median": {
+        "activity_decline": 0.01901602579077696,
+        "previous_activity_decline": -0.01137608494143418,
+        "daytime_decline": 0.007499659106404152,
+        "previous_daytime_decline": -0.04683519579771509,
+        "weekend_decline": 0.003681233749407956,
+        "previous_weekend_decline": -0.04511336212286911
+      },
+      "scale": {
+        "activity_decline": 0.07532497279322083,
+        "previous_activity_decline": 0.0864959715433472,
+        "daytime_decline": 0.10421605502406718,
+        "previous_daytime_decline": 0.13444223468191202,
+        "weekend_decline": 0.0910361189463898,
+        "previous_weekend_decline": 0.11400623570953611
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "여성",
+      "age_band": "10",
+      "baseline_cutoff": 10.888,
+      "median": {
+        "activity_decline": 0.062339115836597576,
+        "previous_activity_decline": -0.05017001730000595,
+        "daytime_decline": 0.009518282066163753,
+        "previous_daytime_decline": -0.045931819233082045,
+        "weekend_decline": 0.004817829503021622,
+        "previous_weekend_decline": -0.04432285119732956
+      },
+      "scale": {
+        "activity_decline": 0.1345790226508964,
+        "previous_activity_decline": 0.1927419370284481,
+        "daytime_decline": 0.1014141878805595,
+        "previous_daytime_decline": 0.13574327697458233,
+        "weekend_decline": 0.08715928413942747,
+        "previous_weekend_decline": 0.11388782944345129
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "여성",
+      "age_band": "20",
+      "baseline_cutoff": 9.4565,
+      "median": {
+        "activity_decline": 0.09859526204432735,
+        "previous_activity_decline": -0.07607490189387477,
+        "daytime_decline": 0.007751937984496039,
+        "previous_daytime_decline": -0.05031938469560688,
+        "weekend_decline": 0.0038721877276807915,
+        "previous_weekend_decline": -0.047566193281535954
+      },
+      "scale": {
+        "activity_decline": 0.1315265696645094,
+        "previous_activity_decline": 0.30096200429050984,
+        "daytime_decline": 0.10302015645859489,
+        "previous_daytime_decline": 0.13680289846671337,
+        "weekend_decline": 0.09052886951293534,
+        "previous_weekend_decline": 0.1121342799591071
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "여성",
+      "age_band": "30",
+      "baseline_cutoff": 9.482,
+      "median": {
+        "activity_decline": 0.0012695725772322295,
+        "previous_activity_decline": -0.023026211025828906,
+        "daytime_decline": 0.007751937984496039,
+        "previous_daytime_decline": -0.045931819233082045,
+        "weekend_decline": 0.003953727707358972,
+        "previous_weekend_decline": -0.04493873602805961
+      },
+      "scale": {
+        "activity_decline": 0.11930009564946084,
+        "previous_activity_decline": 0.11049497499416325,
+        "daytime_decline": 0.10317795674770311,
+        "previous_daytime_decline": 0.13574327697458233,
+        "weekend_decline": 0.09063913080435573,
+        "previous_weekend_decline": 0.11467719078568347
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "여성",
+      "age_band": "40",
+      "baseline_cutoff": 12.919500000000005,
+      "median": {
+        "activity_decline": 0.019659185153116338,
+        "previous_activity_decline": -0.029876977152899706,
+        "daytime_decline": 0.008489943949884728,
+        "previous_daytime_decline": -0.046344852315001586,
+        "weekend_decline": 0.003953727707358972,
+        "previous_weekend_decline": -0.04493873602805961
+      },
+      "scale": {
+        "activity_decline": 0.09408740570441385,
+        "previous_activity_decline": 0.10072875542624621,
+        "daytime_decline": 0.10286787926256297,
+        "previous_daytime_decline": 0.13517129471994221,
+        "weekend_decline": 0.09052886951293534,
+        "previous_weekend_decline": 0.11400623570953611
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "여성",
+      "age_band": "50",
+      "baseline_cutoff": 13.121500000000001,
+      "median": {
+        "activity_decline": 0.020524515393386514,
+        "previous_activity_decline": -0.021167271711812298,
+        "daytime_decline": 0.007751937984496039,
+        "previous_daytime_decline": -0.045931819233082045,
+        "weekend_decline": 0.004083488160651432,
+        "previous_weekend_decline": -0.04493873602805961
+      },
+      "scale": {
+        "activity_decline": 0.08564426029608403,
+        "previous_activity_decline": 0.1006322807040816,
+        "daytime_decline": 0.10221501177709338,
+        "previous_daytime_decline": 0.13517129471994221,
+        "weekend_decline": 0.09002330330554673,
+        "previous_weekend_decline": 0.11358259685947623
+      },
+      "training_rows": 667
+    },
+    {
+      "geo_code": "32",
+      "sex": "여성",
+      "age_band": "60+",
+      "baseline_cutoff": 19.930500000000002,
+      "median": {
+        "activity_decline": 0.016779305523188043,
+        "previous_activity_decline": -0.022100107514036484,
+        "daytime_decline": 0.007305055629066203,
+        "previous_daytime_decline": -0.045931819233082045,
+        "weekend_decline": 0.0034381941318187893,
+        "previous_weekend_decline": -0.04473690120600987
+      },
+      "scale": {
+        "activity_decline": 0.08360000195902346,
+        "previous_activity_decline": 0.09496134662854011,
+        "daytime_decline": 0.10435793208752958,
+        "previous_daytime_decline": 0.13517129471994221,
+        "weekend_decline": 0.09095508775171679,
+        "previous_weekend_decline": 0.11400623570953611
+      },
+      "training_rows": 667
+    }
+  ],
+  "inputs": [
+    "activity_decline",
+    "previous_activity_decline",
+    "daytime_decline",
+    "previous_daytime_decline",
+    "weekend_decline",
+    "previous_weekend_decline"
+  ],
+  "model_version": "local-isolation-forest-v1:c23952e51630b012ebd9",
+  "region_codes": [
+    "11",
+    "32"
+  ],
+  "train_end": "202510",
+  "validation_month": "202511",
+  "test_month": "202512",
+  "score_cutoff": 0.5597854734092022,
+  "anomaly_settings": {
+    "n_estimators": 200,
+    "reference_quantile": 0.95,
+    "baseline_quantile": 0.1,
+    "min_baseline_flow": 1.0,
+    "minimum_decline": 0.1,
+    "stability_seeds": [
+      42,
+      43,
+      44
+    ]
+  },
+  "mapping_mode": "crs_consensus",
+  "seed": 42,
+  "time_mode": "retrospective",
+  "training_rows": 29966,
+  "training_blocks": 2651,
+  "training_months": [
+    "202510"
+  ],
+  "training_snapshot_sha": "4dd9c647c4cf4197a18a",
+  "clean_manifest_sha256": "22b069a971cc497880b98a912d637e5626e294c52914dc574192629da837b2ba"
+}

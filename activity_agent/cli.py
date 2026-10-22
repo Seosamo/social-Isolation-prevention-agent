@@ -16,7 +16,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="지역 활동 위축 분석 파이프라인")
     parser.add_argument("--config", default="config/default.json")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("validate", "preprocess", "features", "report", "run-all", "dashboard", "structural", "cohorts", "readiness", "run-isolation", "policies-refresh", "llm-check"):
+    for name in ("validate", "preprocess", "features", "report", "run-all", "dashboard", "structural", "cohorts", "readiness", "run-isolation", "policies-refresh", "llm-check", "explore-contraction"):
         commands.add_parser(name)
     for name in ("detect", "label", "evaluate"):
         commands.add_parser(name).add_argument("--task", choices=["activity", "isolation"], default="activity")
@@ -44,9 +44,80 @@ def main(argv=None):
     ask.add_argument("--sex")
     ask.add_argument("--age")
     ask.add_argument("--region")
+    spatial = commands.add_parser("spatial-audit", help="Compare SKT coordinates with official sido boundaries")
+    spatial.add_argument("--boundary-file", required=True)
+    experiment = commands.add_parser("experiment", help="Run isolated anomaly comparison experiments")
+    experiment.add_argument("--suite", choices=["all", "injection", "models", "ablation", "regional", "temporal"], default="all")
+    experiment.add_argument("--resume", help="Reuse completed checkpoints in an existing run ID")
+    experiment_report = commands.add_parser("experiment-report", help="Regenerate offline HTML from saved experiment results")
+    experiment_report.add_argument("--run-id", required=True)
+    evidence = commands.add_parser("agent-evidence", help="Export structured anomaly evidence for LLM tools")
+    for key in ("month", "sex", "age", "region"):
+        evidence.add_argument("--" + key)
+    evidence.add_argument("--limit", type=int, default=10)
+    evidence.add_argument("--output", help="Optional UTF-8 JSON file; otherwise print JSON")
     args = parser.parse_args(argv)
     config = Config.load(args.config)
     try:
+        if args.command == "agent-evidence":
+            import json
+            from pathlib import Path
+            from activity_agent.isolation.handoff import candidate_evidence
+            if config.values.get("isolation", {}).get("method") != "isolation_forest":
+                raise ValueError("agent-evidence requires isolation_forest")
+            result = candidate_evidence(config, args.month, args.sex, args.age, args.region, args.limit)
+            text = json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False)
+            if args.output:
+                path = Path(args.output)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+            else:
+                print(text)
+            return 0
+        if args.command == "experiment":
+            from activity_agent.isolation.experiments.runner import run_experiments
+            run_experiments(config, args.suite, args.resume)
+            return 0
+        if args.command == "experiment-report":
+            from pathlib import Path
+            from activity_agent.isolation.experiments.runner import experiment_root
+            from activity_agent.isolation.experiments.report import render_report
+            if Path(args.run_id).name != args.run_id or args.run_id in (".", ".."):
+                raise ValueError("Invalid experiment run ID")
+            print(render_report(experiment_root(config) / args.run_id))
+            return 0
+        if args.command == "readiness" and config.values.get("isolation", {}).get("method") == "isolation_forest":
+            import json
+            from activity_agent.isolation.anomaly import anomaly_readiness
+            print(json.dumps(anomaly_readiness(config), ensure_ascii=False, indent=2))
+            return 0
+        if config.values.get("isolation", {}).get("method") == "isolation_forest" and (
+                args.command == "run-isolation" or (getattr(args, "task", None) == "isolation"
+                and args.command in ("train", "detect", "evaluate"))):
+            from activity_agent.isolation.anomaly import train_anomaly, detect_anomaly, read_model
+            if args.command in ("run-isolation", "train"):
+                if args.command == "train" and (args.source != "weak" or any((args.train_end, args.validation_month, args.test_month, args.holdout_region))):
+                    raise ValueError("Anomaly training does not use reviewed labels; configure temporal splits in isolation settings")
+                if args.command == "run-isolation":
+                    from activity_agent.isolation.structural import load_structural_sources
+                    load_structural_sources(config)
+                train_anomaly(config)
+            elif args.command == "detect":
+                detect_anomaly(config)
+            else:
+                import json
+                from activity_agent.isolation.config import destination
+                read_model(config)
+                print(destination(config, "anomaly/evaluation.json").read_text(encoding="utf-8"))
+            return 0
+        if args.command == "explore-contraction":
+            from activity_agent.isolation.exploration import explore_contraction
+            explore_contraction(config)
+            return 0
+        if args.command == "spatial-audit":
+            from activity_agent.isolation.spatial import audit_spatial_mapping
+            audit_spatial_mapping(config, args.boundary_file)
+            return 0
         if args.command == "llm-check":
             import json
             from activity_agent.llm.vllm import VLLMClient, VLLMSettings
@@ -96,7 +167,7 @@ def main(argv=None):
             train(config, args.signal, args.source, args.train_end or "202510", args.validation_month or "202511", args.test_month or "202512", args.holdout_region)
         if args.command == "train" and task == "isolation":
             if any((args.train_end, args.validation_month, args.test_month, args.holdout_region)):
-                raise ValueError("Configure isolation splits/holdout_districts in the config, then rebuild isolation labels before training")
+                raise ValueError("Configure isolation splits/holdout_regions in the config, then rebuild isolation labels before training")
             from activity_agent.isolation.training import train_model
             train_model(config, args.source)
         if args.command == "detect" and task == "isolation":

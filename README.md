@@ -175,7 +175,32 @@ app.py          # Streamlit 실행용 진입점
 
 기존 CLI 명령과 `app.py` 실행법은 동일합니다. Python 내부 모듈 경로는 위 패키지 구조를 사용합니다. `candidate_export.parquet` 같은 전체 결과 복사본은 생성하지 않고, 대시보드에서 필요할 때 선택 결과를 CSV로 다운로드합니다. `__pycache__`, pytest 캐시와 실패한 임시 폴더는 실행 산출물이 아니며 보관하지 않습니다.
 
+## 좌표로 시도 연결 후보 확인
+
+공식 [SGIS 2025년 행정구역 경계](https://www.data.go.kr/data/15129688/fileData.do)의 시도 SHP·SHX·DBF·PRJ·CPG 파일을 같은 폴더에 둔 뒤 실행합니다.
+
+```powershell
+.venv/Scripts/python.exe -B -m activity_agent spatial-audit --boundary-file data/boundaries/sido_2025/bnd_sido_00_2025_2Q.shp
+```
+
+정제 SKT의 모든 월·자료 유형에서 고유 좌표를 모아 UTM-K 후보 EPSG:5179와 EPSG:5178 각각으로 시도 경계에 대조합니다. 동일 `BLOCK_CD`의 모든 좌표가 두 후보에서 같은 시도로 판정될 때만 연결 후보를 만듭니다. 경계 중첩·시도 불일치·미포함 점이 있는 소지역은 보류합니다. 대표 좌표의 평균이나 코드 앞자리로 확정하지 않습니다. `artifacts/isolation/spatial_audit.json`, `spatial_coordinates.parquet`, `block_geography_candidates.csv`에 결과를 기록합니다. 원본 좌표계의 측지계는 여전히 미확인이므로 후보 CSV는 `verified=false`이며 기존 검증 매핑을 덮어쓰지 않습니다.
+
+현재 서울·강원 실험은 `mapping_mode=crs_consensus`를 명시해 이 후보 중 `candidate_crs_agree`이고 `region_codes=["11","32"]`인 소지역만 사용합니다. 경기도와 판정 보류 소지역은 집계·라벨·학습·평가에서 제외됩니다. 감사 보고서의 후보 파일·정제 목록 해시를 검사하므로 파일이 변경되면 `spatial-audit`부터 다시 실행해야 합니다. `spatial_selection.json`에는 실제 선택·제외 개수가 기록됩니다. 원본 좌표계가 검증됐다고 표시하는 설정은 아닙니다. 기본 검증 매핑을 쓰려면 `mapping_mode=verified`, `block_mapping_file=references/block_geography.csv`로 변경합니다.
+
 ## 구조 통계 기반 고립 의심 확장 파이프라인
+
+모델 비교·특징량 Ablation·합성 주입·지역/시간 진단과 독립 오프라인 HTML 리포트는 `python -B -m activity_agent experiment --suite all`로 실행합니다. 기존 운영 모델을 보존하며 `artifacts/isolation/experiments/<run_id>/index.html`이 진입점입니다. [실험 방법·실제 결과·재현 명령](docs/anomaly-experiments.md)을 참고하세요.
+
+현재 기본 방법은 **서울·강원 소지역 활동의 비지도 이상 탐지(`isolation.method=isolation_forest`)**입니다. `run-isolation` 또는 `train --task isolation`으로 Isolation Forest를 학습하고 이후 월의 활동 위축 후보를 산출합니다. 양성·음성 라벨 없이 학습하며, 시도 1인가구 통계는 모델 입력에 넣지 않고 설명용 맥락으로만 연결합니다. `readiness`, `evaluate --task isolation`, `detect --task isolation`, `ask --task isolation`과 대시보드의 고립 의심 화면도 이 방법에 연결됩니다. [비지도 학습 결과·평가 범위·실행법](docs/activity-anomaly-model.md)을 참고하세요.
+
+운영 모델과 메타데이터는 `activity_agent/model/isolation_forest.pkl`, `activity_agent/model/isolation_forest.json`에 저장하며 Git 추적 대상입니다. 실험 비교 모델은 `activity_agent/model/experiments/<run_id>/`에 실험 ID 이름으로 저장합니다. 탐지 결과와 HTML 리포트는 기존 `artifacts/`에 보관합니다.
+
+LLM agent용 구조화 JSON은 `python -m activity_agent agent-evidence --month 202512 --region 11 --limit 10`으로 조회합니다. Python 조회 도구와 vLLM 자동 전달 방식은 [agent 전달 계약](docs/agent-evidence.md)을 참고하세요.
+
+
+지도학습 실험은 `isolation.method=supervised`로 선택할 수 있습니다. 아래 약한 라벨과 양성·음성 학습 준비 조건 설명은 그 실험에 해당합니다. 비지도 결과는 `artifacts/isolation/anomaly/`에 별도 저장하며 기존 라벨 분류 모델을 덮어쓰지 않습니다.
+
+서울·강원 합계에 가려진 소지역 위축은 `python -B -m activity_agent explore-contraction`으로 탐색합니다. 기존 라벨·모델·임계값을 바꾸지 않고 같은 소지역의 단일·지속 위축 비중, 유동량 가중 비중, 소량 유동 민감도, 분할별 규칙 후보 수를 `artifacts/isolation/exploration/`에 저장합니다. 실행 전 현재 설정의 고립 라벨을 준비해야 합니다. [실제 탐색 결과와 학습 가능성 판단](docs/contraction-exploration.md)을 참고하세요.
 
 새 과제 `regional_isolation_suspicion_v1`은 기존 활동 라벨·모델과 분리됩니다. 코드는 `isolation/structural.py`(외부 통계 정제), `isolation/cohorts.py`(공간·연령·시점 결합), `isolation/labeling.py`(학습 기준·라벨·검토), `isolation/training.py`(준비 상태·학습·평가)에 있습니다. 상세 기준은 [설계 문서](docs/isolation-labeling-training-design.md)를 참고하세요.
 
@@ -204,11 +229,15 @@ app.py          # Streamlit 실행용 진입점
 | `references/block_geography.csv` | `block_code,geo_level,geo_code,reference_year,source_url,verified` |
 | `references/structural_sources.csv` | `source_id,path,reference_period,available_at,url` |
 
-공간 참조는 HTTPS 출처와 `verified=true`가 있는 고유한 코드 연결만 사용합니다. 행정동은 평가 그룹을 구성할 수 있도록 상위 시군구 코드도 등록해야 합니다. 현재 성·연령별 1인가구 CSV는 시도 수준만 선택되어 있어, 정확히 대응하는 시군구/행정동 표본을 라벨링하려면 해당 지역을 선택한 자료가 필요합니다. 코드가 연결되지 않은 자료는 원본 지역명과 품질을 보존하되 해당 집단의 구조 근거로 사용하지 않습니다.
+지리 코드표와 `mapping_mode=verified`의 소지역 매핑은 HTTPS 출처와 `verified=true`가 있는 고유한 코드 연결만 사용합니다. 위의 `crs_consensus`는 명시적으로 선택하는 별도 실험 모드입니다. 행정동은 평가 그룹을 구성할 수 있도록 상위 시군구 코드도 등록해야 합니다. 현재 성·연령별 1인가구 CSV는 시도 수준만 선택되어 있어, 정확히 대응하는 시군구/행정동 표본을 라벨링하려면 해당 지역을 선택한 자료가 필요합니다. 코드가 연결되지 않은 자료는 원본 지역명과 품질을 보존하되 해당 집단의 구조 근거로 사용하지 않습니다.
 
-기본값은 **연결되는 지역 전체, 시군구 단위, 2025년 사후 분석(retrospective)**입니다. `config/default.json`의 `isolation` 설정에서 공간 단위·시간 모드·학습/평가 월을 변경하세요. 원본 참조표의 `reference_period`는 네 자리 기준 연도, 확인된 `available_at`은 `YYYY-MM-DD`로 입력합니다. 공표일을 연도만으로 입력해 연초에 공개된 것처럼 처리하지 않습니다. `as_of`는 구조 통계의 공표일이 판정 시점 이전이고 기준 기간도 종료된 경우에만 사용합니다. 공표일을 모르면 배제합니다. `retrospective`에서 연간 통계를 사용한 월별 평가는 당시 실시간 예측의 성능이 아닙니다.
+기본값은 **서울·강원 한정, 시도 단위(`sido`), 2025년 사후 분석(retrospective)**입니다. `config/default.json`의 `isolation` 설정에서 `region_codes`·공간 단위(`sido`/`sigungu`/`dong`)·시간 모드·학습/평가 월을 변경하세요. 서울 `11`과 강원 `32`는 이 SGIS 경계의 코드 체계입니다. 서로 다른 공간 단위는 한 모델에 섞지 않습니다. 원본 참조표의 `reference_period`는 네 자리 기준 연도, 확인된 `available_at`은 `YYYY-MM-DD`로 입력합니다. 공표일을 연도만으로 입력해 연초에 공개된 것처럼 처리하지 않습니다. `as_of`는 구조 통계의 공표일이 판정 시점 이전이고 기준 기간도 종료된 경우에만 사용합니다. 공표일을 모르면 배제합니다. `retrospective`에서 연간 통계를 사용한 월별 평가는 당시 실시간 예측의 성능이 아닙니다.
 
-새 라벨은 A(집단 유동), S(구조적 취약성), B(활동 보조)의 상태를 저장합니다. A·B는 두 연속 비교를 사용합니다. S는 같은 공간·성·연령의 **전체 1인가구 중 해당 집단 구성비**를 같은 집단의 다른 지역과 비교합니다. 인구 대비 1인가구 비율이 아닙니다. 학습 자료에서만 상위 25% 기준을 적합하며, 연간 값을 여러 월에 연결해도 한 번만 기준 분포에 반영합니다. 기본 최소 참조 지역 5개·학습 시군구 3개는 부족한 실험을 막는 설정이며 통계적 충분성을 보장하지 않습니다.
+시도 실행에서는 `geography.csv`에 `geo_level=sido`, 시도 코드·정식 시도명·기준 연도·출처를 등록하고 `district,dong,parent_code`는 비워 둡니다. `block_geography.csv`는 SKT 소지역을 같은 시도 코드에 연결합니다. 소지역 코드 앞자리를 임의로 행정구역 코드로 간주하거나 검증 없이 `verified=true`로 채우지 않습니다. 매핑된 관측 격자를 시도별로 합산하되 두 이전 월과의 공통 격자·커버리지 검사를 유지합니다. 부분 지역만 관측한 경우 시도 전체를 대표한다고 해석할 수 없습니다. 강남·춘천 카드 관측은 시도 전체 소비로 합산하지 않으며, 시도 모델의 B는 해당 시도에 연결된 낮·주말 유동 근거를 사용합니다.
+
+새 라벨은 A(집단 유동), S(구조적 취약성), B(활동 보조)의 상태를 저장합니다. A·B는 두 연속 비교를 사용합니다. S는 같은 공간·성·연령의 **전체 1인가구 중 해당 집단 구성비**를 같은 집단의 다른 지역과 비교합니다. 인구 대비 1인가구 비율이 아닙니다. 학습 자료에서만 75% 분위수 기준을 적합하며, 연간 값을 여러 월에 연결해도 한 번만 기준 분포에 반영합니다. 서울·강원 한정 실험은 최소 참조 지역과 최소 학습 지역을 각각 2개로 설정합니다. S는 두 시도의 상대 비교이며 전국 상위 25%나 통계적 충분성을 의미하지 않습니다. 월·성·연령 행을 늘려 지역 수를 채우지 않습니다. 20% 위축·10% 안정 기준은 유지하고 양성 라벨을 만들기 위해 임의 변경하지 않습니다.
+
+평가는 2025년 10월까지 학습 / 11월 검증 / 12월 테스트로, 같은 두 시도의 이후 월을 평가합니다. 다른 지역으로의 일반화 성능으로 보고하지 않습니다. 지역별 지표와 학습 범위는 모델·평가 파일에 기록되며 범위 밖 지역에는 점수를 산출하지 않습니다. 현재 실제 데이터 실행 결과는 [서울·강원 학습 상태](docs/sido-training-status.md)를 참고하세요.
 
 - A·S·B가 support이면 `1 / 고립 의심`입니다.
 - A가 안정적이고 구조 근거를 판정할 수 있으며 관측된 B가 모두 안정적이면 `0 / 의심 근거 미약`입니다. 고립 부재 확인이 아닙니다.
@@ -226,6 +255,8 @@ app.py          # Streamlit 실행용 진입점
 
 SQLite의 기존 활동 테이블은 유지하고 `label_sets`, `label_decisions`, `label_reviews`를 추가합니다. 라벨·검토는 과제·표본·특징 버전·라벨 버전별로 식별합니다. 독립 외부 확인이 있을 때만 `--independent`를 사용하며, 최신 판단 보류나 비독립 검토가 이전 독립 검토를 대체하면 독립 평가에서도 제외합니다.
 
-새 모델은 명시적 숫자·범주 특징만 사용합니다. 지역 코드, 고독사 지표, 라벨 결과와 검토 텍스트를 입력하지 않습니다. 결측 대체·표준화·범주 인코딩은 학습 자료에서만 적합합니다. 라벨 구성 원지표를 학습에 쓰므로 기본 성능은 규칙 재현 실험이며, 독립 확인 정답의 성능은 따로 보고합니다. `holdout_districts`에 시군구 코드를 지정하면 해당 지역을 라벨 기준 적합·모델 학습·검증에서 제외하고 테스트에 별도로 평가합니다. 분할 설정을 바꾸면 라벨부터 다시 생성해야 합니다.
+새 모델은 명시적 숫자·범주 특징만 사용합니다. 지역 코드, 고독사 지표, 라벨 결과와 검토 텍스트를 입력하지 않습니다. 결측 대체·표준화·범주 인코딩은 학습 자료에서만 적합합니다. 라벨 구성 원지표를 학습에 쓰므로 기본 성능은 규칙 재현 실험이며, 독립 확인 정답의 성능은 따로 보고합니다. `holdout_regions`에 시도 모드에서는 시도 코드, 시군구·행정동 모드에서는 시군구 코드를 지정합니다. 해당 지역을 라벨 기준 적합·모델 학습·검증에서 제외하고 테스트에 별도로 평가합니다. 기존 `holdout_districts` 설정도 읽을 수 있지만 두 설정이 충돌하면 중단합니다. 분할 설정을 바꾸면 라벨부터 다시 생성해야 합니다.
+
+준비·평가 보고서의 `evaluation_region_level`, `independent_evaluation_regions`와 모델의 `training_regions`, `holdout_regions`로 지역 단위를 확인할 수 있습니다. 기존 저장 형식과의 호환을 위한 `district_code`, `independent_districts`, `training_districts`, `holdout_districts`는 시도 모드에서 시도 평가 그룹을 뜻합니다.
 
 산출물은 `artifacts/isolation/`에 저장합니다: `structural.parquet`, `structural_quality.json`, `cohorts.parquet`, `cohort_manifest.json`, `readiness.json`, `labels.parquet`, `label_reference.json`, `label_summary.json`, `models/logistic.pkl`, `models/logistic.json`, `evaluation.json`, `detections.parquet`. 원자료로 학습할 수 없는 경우에도 준비 상태와 부족한 근거를 확인할 수 있습니다.

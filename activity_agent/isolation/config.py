@@ -10,7 +10,7 @@ from activity_agent.common.storage import write_json
 
 TASK_ID = "regional_isolation_suspicion_v1"
 DEFAULTS = {
-    "geo_level": "sigungu", "time_mode": "retrospective",
+    "geo_level": "sido", "time_mode": "retrospective",
     "geography_file": "references/geography.csv",
     "block_mapping_file": "references/block_geography.csv",
     "sources_file": "references/structural_sources.csv",
@@ -18,13 +18,35 @@ DEFAULTS = {
     "suspect_decline": 0.2, "stable_change": 0.1,
     "structural_quantile": 0.75, "min_reference_regions": 5,
     "min_training_regions": 3, "holdout_districts": [],
+    "region_codes": [], "mapping_mode": "verified",
+    "method": "supervised",
 }
 
 
 def settings(config: Config) -> dict:
     result = DEFAULTS | config.values.get("isolation", {})
-    if result["geo_level"] not in ("dong", "sigungu"):
-        raise ValueError("isolation.geo_level must be dong or sigungu")
+    if result["method"] not in ("supervised", "isolation_forest"):
+        raise ValueError("isolation.method must be supervised or isolation_forest")
+    if result["geo_level"] not in ("sido", "dong", "sigungu"):
+        raise ValueError("isolation.geo_level must be sido, sigungu or dong")
+    if result["mapping_mode"] not in ("verified", "crs_consensus"):
+        raise ValueError("mapping_mode must be verified or crs_consensus")
+    if result["mapping_mode"] == "crs_consensus" and result["geo_level"] != "sido":
+        raise ValueError("CRS consensus mapping supports sido cohorts only")
+    if not isinstance(result["region_codes"], list) or any(
+            not isinstance(code, str) or not code.strip() for code in result["region_codes"]):
+        raise ValueError("region_codes must be a list of nonempty codes")
+    if len(set(result["region_codes"])) != len(result["region_codes"]):
+        raise ValueError("region_codes must be unique")
+    # Keep the old config name readable for existing district experiments.
+    if "holdout_regions" in result:
+        if result["holdout_districts"] and result["holdout_regions"] != result["holdout_districts"]:
+            raise ValueError("Conflicting holdout_regions and legacy holdout_districts")
+        result["holdout_districts"] = result["holdout_regions"]
+    result["holdout_regions"] = result["holdout_districts"]
+    if not isinstance(result["holdout_regions"], list) or any(
+            not isinstance(code, str) or not code.strip() for code in result["holdout_regions"]):
+        raise ValueError("holdout_regions must be a list of nonempty region codes")
     if result["time_mode"] not in ("retrospective", "as_of"):
         raise ValueError("isolation.time_mode must be retrospective or as_of")
     if not 0 <= result["stable_change"] < result["suspect_decline"] <= 1:

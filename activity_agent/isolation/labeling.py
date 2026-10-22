@@ -36,6 +36,8 @@ class IsolationLabelPolicy:
         self.fitted = False
 
     def fit_reference(self, train: pd.DataFrame):
+        if self.cfg.get("region_codes"):
+            train = train.loc[train.geo_code.isin(self.cfg["region_codes"])]
         if not train.empty and train.month.gt(self.cfg["train_end"]).any():
             raise ValueError("Structural references must be fitted on training months only")
         self.references = []
@@ -59,6 +61,7 @@ class IsolationLabelPolicy:
     def version(self):
         # Only semantic policy settings enter this identifier, never background deaths.
         keys = ["train_end", "geo_level", "time_mode", "suspect_decline", "stable_change", "structural_quantile", "min_reference_regions", "holdout_districts"]
+        keys += [k for k in ("region_codes", "mapping_mode") if k in self.cfg]
         return "isolation-rule-v1:" + digest({"task": TASK_ID, "settings": {k: self.cfg[k] for k in keys}, "references": self.references})
 
     def to_dict(self):
