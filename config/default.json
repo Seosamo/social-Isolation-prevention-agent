@@ -1,6 +1,6 @@
 {
   "data_dir": "data",
-  "output_dir": "artifacts",
+  "output_dir": "/tmp/activity-agent-artifacts",
   "baseline_months": 2,
   "minimum_coverage": 0.8,
   "suspect_decline": 0.2,
