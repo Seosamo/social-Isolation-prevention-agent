@@ -99,10 +99,14 @@ class AgentBackend(Protocol):
     def answer(self, question: str, tools: QueryTools, filters: dict) -> str: ...
 
 
+from activity_agent.policies.recommendation import with_policy_response
+
+
 class EvidenceAgent:
     def __init__(self, tools: QueryTools, backend: AgentBackend | None = None):
         self.tools, self.backend = tools, backend
 
+    @with_policy_response
     def answer(self, question: str, **filters) -> str:
         if self.backend:
             return self.backend.answer(question, self.tools, filters)
@@ -161,15 +165,6 @@ class EvidenceAgent:
             card = self.tools.get_card_context(row.feature_id)
             if row.signal != "consumption" and not card.empty:
                 lines.append(f"- 시군구 소비 맥락의 결제건수 감소율: {percentage(card.iloc[0].consumption_decline)}. 소지역 소비값이 아닙니다.")
-            if any(word in question for word in ("예방", "추천", "지원", "프로그램", "정책")):
-                resources = self.tools.find_prevention_resources(row.region, row.age)
-                if resources.empty:
-                    lines.append("- 등록·확인된 예방 자원이 없어 구체적인 프로그램 추천은 보류합니다.")
-                else:
-                    for resource in resources.head(3).itertuples(index=False):
-                        lines.append(f"- 검토할 자원: [{resource.title}]({resource.url}) / 대상 {resource.age_min}~{resource.age_max}세 / 확인일 {resource.checked_at}. 현재 모집 여부는 별도 확인이 필요합니다.")
-                from activity_agent.policies.recommendation import policy_lines
-                lines.extend(policy_lines(self.tools.config, row.region))
             lines.append(f"- 근거 ID: `{row.feature_id}`")
         lines += ["", "활동 감소의 원인은 계절·상권·통근·관측 변화 등일 수 있습니다. 현장 확인 없이 고립이나 원인을 확정하지 않습니다."]
         return "\n".join(lines)

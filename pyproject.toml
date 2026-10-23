@@ -23,7 +23,7 @@ activity-agent = "activity_agent.cli:main"
 include = ["activity_agent*"]
 
 [tool.setuptools.package-data]
-activity_agent = ["model/*.pkl", "model/*.json", "model/experiments/*/*.pkl", "model/experiments/*/*.json"]
+activity_agent = ["model/*.pkl", "model/*.json", "model/experiments/*/*.pkl", "model/experiments/*/*.json", "model/experiments/*/*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

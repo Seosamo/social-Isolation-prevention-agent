@@ -5,7 +5,7 @@
 ```json
 "model_id": "IF_F2",
 "model_path": "activity_agent/model/experiments/20261021T110042016328Z/IF_F2.pkl",
-"flow_cutoffs_path": "/tmp/activity-agent-artifacts/isolation/experiments/20261021T110042016328Z/data/flow_cutoffs.csv"
+"flow_cutoffs_path": "activity_agent/model/experiments/20261021T110042016328Z/flow_cutoffs.csv"
 ```
 
 이 설정은 `isolation` 안에 있습니다. 최상위 `detector=rule`은 별도의 활동 위축 과제에 해당합니다. F2를 실행할 때는 `--task isolation`을 지정합니다. 저장 모델과 동명 JSON은 그대로 사용하며 `isolation_forest.pkl`을 덮어쓰지 않습니다.
@@ -38,13 +38,13 @@ uv pip install --python /opt/venvs/social/bin/python -e .
 
 현재 `output_dir`은 `/tmp/activity-agent-artifacts`이고 `isolation.block_mapping_file`도 그 아래 `isolation/block_geography_candidates.csv`를 가리킵니다. 따라서 위 명령이 만드는 후보 매핑과 `spatial_audit.json`을 그대로 사용합니다. `output_dir`을 변경하면 매핑 경로도 함께 변경하세요. 기존 감사 결과를 복원한다면 원본 정제 manifest와 후보 매핑의 SHA-256이 일치해야 합니다.
 
-원래 실험 실행 폴더의 `data/flow_cutoffs.csv`도 복원해야 합니다. 현재 설정은 다음 위치를 읽습니다.
+원래 실험의 `data/flow_cutoffs.csv`를 검증하여 모델 폴더에 함께 포함했습니다. Git으로 모델과 함께 받으며, 현재 설정은 다음 위치를 읽습니다.
 
 ```text
-/tmp/activity-agent-artifacts/isolation/experiments/20261021T110042016328Z/data/flow_cutoffs.csv
+activity_agent/model/experiments/20261021T110042016328Z/flow_cutoffs.csv
 ```
 
-실험 자료가 다른 위치에 있다면 `isolation.flow_cutoffs_path`를 그 파일로 바꾸세요. CSV는 `geo_code,sex,age_band,flow_cutoff` 열을 포함하며 원래 24개 집단의 기준을 보존해야 합니다. 임의로 새 파일을 만들거나 현재 자료에서 추정한 값으로 대체하지 않습니다.
+`isolation.flow_cutoffs_path`를 생략하면 모델과 같은 폴더의 `flow_cutoffs.csv`를 읽습니다. 모델 JSON에 저장한 SHA-256과 다른 기준표는 거부합니다. 복원 검증 내역은 같은 폴더의 `flow_cutoffs_provenance.json`에 기록했습니다. CSV는 `geo_code,sex,age_band,flow_cutoff` 열을 포함하며 원래 24개 집단의 기준을 보존해야 합니다. 임의로 새 파일을 만들거나 현재 자료에서 추정한 값으로 대체하지 않습니다.
 
 그다음 저장 F2로 추론합니다. Baseline 결과나 기존 실험 특징 파일을 미리 만들 필요는 없습니다.
 

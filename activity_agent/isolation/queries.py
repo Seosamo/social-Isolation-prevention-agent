@@ -9,6 +9,7 @@ import pandas as pd
 from activity_agent.common.presentation import percentage
 from activity_agent.common.config import Config
 from activity_agent.isolation.config import destination, load
+from activity_agent.policies.recommendation import with_policy_response
 
 
 class IsolationQueryTools:
@@ -63,6 +64,7 @@ class IsolationEvidenceAgent:
         self.tools = AnomalyQueryTools(config) if self.is_anomaly else IsolationQueryTools(config)
         self.backend = backend
 
+    @with_policy_response
     def answer(self, question, month=None, sex=None, age=None, region=None, _resolved=False):
         if self.backend:
             return self.backend.answer_isolation(question, self, dict(month=month, sex=sex, age=age, region=region))
@@ -102,9 +104,6 @@ class IsolationEvidenceAgent:
                           "- 한 달의 학습 분포를 사용한 활동 탐색 결과입니다. 계절성이나 실제 고립 탐지 성능은 검증되지 않았습니다."]
                 if pd.notna(row.province_structure_context):
                     lines.append(f"- 시도 단위 배경: 전체 1인가구 중 해당 성·연령 구성비 {percentage(row.province_structure_context)}. 소지역의 독립 관측값은 아닙니다.")
-                if any(word in question for word in ("예방", "추천", "지원", "프로그램", "정책")):
-                    from activity_agent.policies.recommendation import policy_lines
-                    lines.extend(policy_lines(self.config, row.province))
             return "\n".join(lines)
         if candidates.empty:
             readiness_path = destination(self.config, "readiness.json")
@@ -125,9 +124,6 @@ class IsolationEvidenceAgent:
             if not rate.empty:
                 r = rate.sort_values("reference_period").iloc[-1]
                 lines.append(f"- 별도 배경: {r.reference_period}년 {r.province} 고독사 발생률은 인구 10만 명당 {r.value:.1f}명. 라벨·모델 입력에는 사용하지 않았습니다.")
-            if any(word in question for word in ("예방", "추천", "지원", "프로그램", "정책")):
-                from activity_agent.policies.recommendation import policy_lines
-                lines.extend(policy_lines(self.config, row.district or row.province))
         return "\n".join(lines)
 
 

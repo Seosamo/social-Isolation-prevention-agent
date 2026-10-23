@@ -15,7 +15,8 @@ def flow_cutoffs_path(config):
     from pathlib import Path
     name = config.values.get("isolation", {}).get("flow_cutoffs_path")
     if not name:
-        raise ValueError("IF_F2 requires isolation.flow_cutoffs_path from the original experiment")
+        from .anomaly import model_path
+        return model_path(config).with_name('flow_cutoffs.csv')
     path = Path(name)
     return path if path.is_absolute() else config.root / path
 
@@ -58,6 +59,9 @@ def read_model(config):
         raise ValueError('Invalid IF_F2 calibration reference')
     cutoff_path = flow_cutoffs_path(config)
     cutoff_sha = fingerprint(cutoff_path) if cutoff_path.exists() else None
+    expected_sha = metadata.get('flow_cutoffs_sha256')
+    if expected_sha and cutoff_sha is not None and cutoff_sha != expected_sha:
+        raise ValueError('IF_F2 flow cutoff reference does not match the packaged model metadata')
     version = 'IF_F2:' + digest({'model_sha256': fingerprint(path), 'flow_cutoffs_sha256': cutoff_sha})
     blocks = None
     deployment = destination(config, 'anomaly/deployment.json')

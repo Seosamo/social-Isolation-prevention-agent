@@ -20,19 +20,21 @@ def test_collection_filters_navigation_and_preserves_last_success(config):
     result = collect(config, fetch)
     assert result["collected"] == 1 and not result["errors"]
     assert calls == [listing, detail]
-    row = recommend(config, "강남구")[0]
+    row = json.loads((config.output / 'policies/catalog.json').read_text(encoding='utf-8'))[0]
     assert "다른 지역 메뉴" not in row["excerpt"]
     assert row["status"] == "needs_verification"
-    assert recommend(config, "춘천시") == []
     assert recommend(config, None) == []
-    assert "현재 지원 가능 여부" in policy_lines(config, "서울 강남구")[0]
     old = (config.output / "policies/catalog.json").read_bytes()
     def fail(url):
         raise OSError("offline")
     failed = collect(config, fail)
     assert failed["errors"] and failed["previous_catalog_preserved"]
     assert (config.output / "policies/catalog.json").read_bytes() == old
-    assert recommend(config, "강남구", now=datetime.now(timezone.utc) + timedelta(days=8)) == []
+    from activity_agent.policies.search import lookup, question_context
+    result = lookup(config, question_context(config, '', region='강남구'), search=fail)
+    assert result['status'] == 'failed' and not result['policies']
+    assert result['historical'][0]['url'] == detail
+    assert '과거 확인 자료' in '\n'.join(policy_lines(config, result=result))
 
 
 def test_official_hosts_and_body_extraction():

@@ -21,6 +21,11 @@
     "max_tokens": 1200
   },
   "policies": {
+    "provider": "tavily",
+    "search_sources_file": "references/policy_search_sources.json",
+    "timeout_seconds": 30,
+    "max_searches": 4,
+    "max_detail_pages": 8,
     "sources_file": "references/policy_sources.json",
     "max_pages_per_source": 10,
     "max_age_days": 7
@@ -53,6 +58,6 @@
     "holdout_regions": [],
     "model_id": "IF_F2",
     "model_path": "activity_agent/model/experiments/20261021T110042016328Z/IF_F2.pkl",
-    "flow_cutoffs_path": "/tmp/activity-agent-artifacts/isolation/experiments/20261021T110042016328Z/data/flow_cutoffs.csv"
+    "flow_cutoffs_path": "activity_agent/model/experiments/20261021T110042016328Z/flow_cutoffs.csv"
   }
 }

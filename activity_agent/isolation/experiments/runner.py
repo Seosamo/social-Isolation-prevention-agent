@@ -328,6 +328,8 @@ def run_experiments(config, suite="all", resume=None):
     allowed, cutoffs = low_flow_mask(frame, train_blocks)
     frame["experiment_flow_cutoff"] = frame[["geo_code", "sex", "age_band"]].merge(cutoffs, on=["geo_code", "sex", "age_band"], how="left").flow_cutoff.to_numpy()
     cutoffs.to_csv(run / "data/flow_cutoffs.csv", index=False)
+    # Keep the original eligibility reference beside the models for deployment.
+    shutil.copy2(run / "data/flow_cutoffs.csv", model_directory(run) / "flow_cutoffs.csv")
     common = allowed & eligible(frame, FEATURE_SETS["F4"])
     frame["common_eligible"] = common
     frame.to_parquet(run / "data/features.parquet", index=False)
@@ -403,7 +405,9 @@ def run_experiments(config, suite="all", resume=None):
                     pickle.dump(model, stream)
             write_json(model_directory(run) / f"{identity}.json", {"input_features": model.columns, "normalization": normalization,
                        "unit": "block/month" if regional else "block/sex/age/month", "seed": 42, "threshold": model.threshold,
-                       "threshold_source": "held-out October block calibration 95%", "scaler": model.scaler.diagnostics})
+                       "threshold_source": "held-out October block calibration 95%", "scaler": model.scaler.diagnostics,
+                       **({"flow_cutoffs_sha256": fingerprint(model_directory(run) / 'flow_cutoffs.csv')}
+                          if identity == 'IF_F2' else {})})
             pd.DataFrame(model.scaler.diagnostics).assign(model_id=identity).to_csv(run / f"data/normalization_{identity}.csv", index=False)
             predicted = _evaluate(run, identity, model, evaluation, completed.get("IF_BASELINE"))
             completed[identity] = predicted

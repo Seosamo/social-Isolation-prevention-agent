@@ -12,3 +12,5 @@ Baseline을 선택한 학습과 추론은 프로젝트 루트 기준 이 폴더�
 `IF_BASELINE_ORIGINAL.pkl`은 운영 원본, `IF_BASELINE.pkl`은 비교용 래퍼입니다.
 실험 결과의 `config/model_directory.json`이 모델 폴더의 상대 경로를 기록합니다.
 실험 모델을 운영 모델로 자동 교체하지 않습니다.
+
+IF_F2의 소량 유동 제외 기준은 같은 실험 모델 폴더의 `flow_cutoffs.csv`에 포함합니다. 원본 실험 자료로 검증한 기준이며 `IF_F2.json`에 SHA-256, `flow_cutoffs_provenance.json`에 검증 내역을 기록합니다. 임시 출력 폴더의 파일이나 임의 기준으로 대체하지 않습니다. 새 실험도 기준표를 모델 폴더에 함께 저장합니다.

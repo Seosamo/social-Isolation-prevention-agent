@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from activity_agent.common.storage import load_table, save_table
+from activity_agent.common.config import Config
 from activity_agent.activity.detection import RuleDetector, detect, weak_labels
 from activity_agent.data.aggregation import aggregate_skt, compare_skt_window, entropy
 from activity_agent.activity.features import build_features
@@ -145,7 +146,7 @@ def test_agent_does_not_invent_missing_context_or_resources(complete_pipeline):
     tools = QueryTools(complete_pipeline)
     answer = EvidenceAgent(tools).answer("이번 달 50대 남성 활동 위축과 예방 프로그램 추천")
     assert "202512" in answer and "고립 확률이 아닙니다" in answer
-    assert "추천은 보류" in answer
+    assert "시도 또는 시군구를 지정" in answer
     assert "계산 가능한 결과가 없습니다" in EvidenceAgent(tools).answer("2026-09 위험 지역")
     assert "통합 탐지의 연령 구간" in EvidenceAgent(tools).answer("70대 위험 지역")
     assert tools.find_prevention_resources().empty
@@ -194,7 +195,7 @@ def test_dashboard_load_and_query(complete_pipeline):
     assert not app.exception
 
 
-@pytest.mark.skipif(not (Path(__file__).resolve().parents[1] / "artifacts/detections.parquet").exists(),
+@pytest.mark.skipif(not (Config.load(Path(__file__).resolve().parents[1] / 'config/default.json').output / 'detections.parquet').exists(),
                     reason="Run-all artifacts are optional for the real-data UI smoke test")
 def test_dashboard_current_artifacts():
     from streamlit.testing.v1 import AppTest

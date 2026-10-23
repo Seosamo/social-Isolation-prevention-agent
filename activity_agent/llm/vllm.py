@@ -151,6 +151,8 @@ ANSWER_PROMPT = """지역·집단 활동과 고립 의심 분석을 설명하는
 점수는 검증된 고립 확률이 아니며 개인 판정이나 인과 추론을 하지 않는다.
 지역 전체 낮·주말 통계를 성·연령별 행동이라고 쓰지 않는다. 매핑 부재를 지역명으로 추정하지 않는다.
 고독사 통계는 별도 배경이다. 정책은 확인 후보이며 현재 모집·자격 적합성을 확정하지 않는다.
+정책 확인일은 활동 분석 월과 별개다. 과거 확인 자료는 현재 추천으로 표현하지 않는다.
+접수 예정·확인 필요를 접수 중으로 바꾸지 않는다. 미확인 자격·지역·소득 조건을 추측하지 않는다.
 새 수치·정책·URL을 만들지 않는다. 숫자는 근거에 나온 표기를 유지한다.
 간결한 요약과 후속 확인 사항을 작성한다. 근거 ID와 원문 링크는 뒤에 시스템이 그대로 첨부한다."""
 
@@ -195,6 +197,11 @@ class VLLMBackend:
         return self.run(question, lambda q, f: IsolationEvidenceAgent(agent.config).answer(q, **f), latest, filters, "isolation", structured)
 
     def run(self, question, lookup, latest, filters, task, structured_lookup=None):
+        from activity_agent.policies.search import policy_session
+        with policy_session(self.client):
+            return self._run(question, lookup, latest, filters, task, structured_lookup)
+
+    def _run(self, question, lookup, latest, filters, task, structured_lookup=None):
         if not question.strip():
             return "질문을 입력해 주세요."
         band = re.search(r"([1-9]0)\s*대\s*(이상)?", question)

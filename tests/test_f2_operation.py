@@ -73,7 +73,7 @@ def test_f2_detection_uses_saved_estimator_and_evidence_contract(deployed_f2, mo
     payload = candidate_evidence(config, month='202512')
     assert payload['model']['id'] == 'IF_F2'
     assert payload['model']['score_reference'] == 'calibration'
-    assert payload['provenance']['model'] == 'models/IF_F2.pkl'
+    assert Path(payload['provenance']['model']) == Path('models/IF_F2.pkl')
     assert 'calibration_percentile' in payload['candidates'][0]['scores']
     assert destination(config, 'anomaly/evaluation.json').exists()
     assert anomaly.anomaly_readiness(config)['training_ready']
@@ -177,3 +177,44 @@ def test_f2_requires_original_flow_cutoff_artifact(deployed_f2):
     (config.root / 'models/flow_cutoffs.csv').unlink()
     with pytest.raises(FileNotFoundError, match='flow cutoff reference'):
         anomaly.detect_anomaly(config)
+
+
+def test_f2_defaults_to_model_sibling_cutoffs(deployed_f2, monkeypatch):
+    from activity_agent.isolation import f2
+    config, source, _ = deployed_f2
+    config.values['isolation'].pop('flow_cutoffs_path')
+    monkeypatch.setattr(f2, 'source_features', lambda cfg: source.copy())
+    assert f2.flow_cutoffs_path(config) == anomaly.model_path(config).with_name('flow_cutoffs.csv')
+    assert anomaly.detect_anomaly(config).anomaly_raw.notna().any()
+
+
+def test_f2_rejects_replacement_cutoffs_against_metadata(deployed_f2):
+    from activity_agent.common.storage import fingerprint
+    from activity_agent.isolation import f2
+    config, _, _ = deployed_f2
+    path = anomaly.model_path(config).with_suffix('.json')
+    cutoff = f2.flow_cutoffs_path(config)
+    metadata = json.loads(path.read_text(encoding='utf-8'))
+    metadata['flow_cutoffs_sha256'] = fingerprint(cutoff)
+    path.write_text(json.dumps(metadata), encoding='utf-8')
+    replacement = config.root / 'replacement.csv'
+    replacement.write_text('geo_code,sex,age_band,flow_cutoff\n11,male,50,1\n', encoding='utf-8')
+    config.values['isolation']['flow_cutoffs_path'] = str(replacement)
+    with pytest.raises(ValueError, match='packaged model metadata'):
+        f2.read_model(config)
+
+
+def test_shipped_f2_cutoffs_are_packaged_and_match_metadata():
+    from activity_agent.common.config import Config
+    from activity_agent.common.storage import fingerprint
+    from activity_agent.isolation import f2
+    config = Config.load(Path(__file__).resolve().parents[1] / 'config/default.json')
+    path = anomaly.model_path(config)
+    cutoff = f2.flow_cutoffs_path(config)
+    assert cutoff.parent == path.parent
+    metadata = json.loads(path.with_suffix('.json').read_text(encoding='utf-8'))
+    assert fingerprint(cutoff) == metadata['flow_cutoffs_sha256']
+    frame = pd.read_csv(cutoff)
+    assert len(frame) == 24
+    assert not frame.duplicated(['geo_code', 'sex', 'age_band']).any()
+    assert frame.flow_cutoff.ge(1).all()

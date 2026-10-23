@@ -122,7 +122,7 @@ def render_activity_dashboard(config: Config, config_path: str):
             reviews = latest_reviews(config)
             st.dataframe(reviews.loc[reviews.feature_id.eq(chosen)], hide_index=True)
     with chat_tab:
-        st.caption("공식 사이트 정책 후보는 policies-refresh로 수집한 자료에서 조회합니다. 대상 조건과 현재 모집 여부는 원문 확인이 필요합니다.")
+        st.caption("정책 요청 시 실시간 검색과 공식 원문 확인을 수행합니다. 분석 월과 정책 확인일은 별개이며, 검색 실패 시 과거 자료는 참고로만 표시합니다.")
         question = st.text_input("질문", placeholder="이번 달 50대 남성 활동 위축 후보와 예방 자원을 추천해줘")
         if st.button("근거 조회"):
             from activity_agent.llm.vllm import create_activity_agent

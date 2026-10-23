@@ -19,7 +19,7 @@ def config(tmp_path):
     values["isolation"].pop("flow_cutoffs_path", None)
     (tmp_path / "config").mkdir()
     (tmp_path / "references").mkdir()
-    for name in ("industries.csv", "block_regions.csv", "resources.csv"):
+    for name in ("industries.csv", "block_regions.csv", "resources.csv", "policy_search_sources.json"):
         (tmp_path / "references" / name).write_bytes((root / "references" / name).read_bytes())
     path = tmp_path / "config/default.json"
     path.write_text(json.dumps(values))
