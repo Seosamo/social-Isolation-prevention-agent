@@ -22,8 +22,12 @@
   },
   "policies": {
     "provider": "tavily",
+    "rerank": true,
     "search_sources_file": "references/policy_search_sources.json",
     "timeout_seconds": 30,
+    "parallel_search": true,
+    "page_timeout_seconds": 6,
+    "service_sources_file": "references/policy_service_sources.json",
     "max_searches": 4,
     "max_detail_pages": 8,
     "sources_file": "references/policy_sources.json",

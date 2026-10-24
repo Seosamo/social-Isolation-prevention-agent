@@ -92,8 +92,9 @@ class Page(HTMLParser):
 
 
 class MunicipalClient:
-    def __init__(self, domains=None, deadline=None):
+    def __init__(self, domains=None, deadline=None, request_timeout=15):
         self.domains, self.deadline = domains, deadline
+        self.request_timeout = request_timeout
         self.opener = build_opener(SafeRedirect(domains))
         self.robots = {}
         self.last_request = 0.0
@@ -103,7 +104,7 @@ class MunicipalClient:
             raise ValueError("URL outside municipal allowlist")
         self._pause(1)
         try:
-            timeout = min(15, self.deadline - time.monotonic()) if self.deadline else 15
+            timeout = min(self.request_timeout, self.deadline - time.monotonic()) if self.deadline else self.request_timeout
             if timeout <= 0:
                 raise TimeoutError('Policy lookup deadline exceeded')
             with self.opener.open(Request(url, headers={"User-Agent": USER_AGENT}), timeout=timeout) as response:

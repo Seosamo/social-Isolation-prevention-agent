@@ -91,6 +91,8 @@ class IsolationEvidenceAgent:
                         break
         candidates = self.tools.candidates(month, sex, age, region, limit=3)
         if self.is_anomaly:
+            from activity_agent.policies.matching import observe_candidates
+            observe_candidates(candidates, 'anomaly')
             reference_label = "보정 표본" if self.tools.model.get("score_reference") == "calibration" else "학습"
             if candidates.empty:
                 return "선택 조건에서 활동 위축 이상 후보가 없습니다. 고립이 없다는 확인 결과는 아닙니다."

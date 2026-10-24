@@ -4,6 +4,7 @@ import json
 from functools import wraps
 
 from .search import SESSION, POLICY_WORDS, lookup, policy_session, question_context
+from .matching import enrich_context
 
 
 def recommend(config, region=None, limit=3, now=None, **kwargs):
@@ -43,6 +44,27 @@ def policy_lines(config, region=None, *, context=None, result=None):
             f"  - 원문 신청 방법: {clean(row['application'])}",
             f"  - 추천 근거: {row['reason']} / 확인 시각 {row['checked_at']}",
             f"  - 미확인 항목: {'; '.join(row['unknown'])}. 현재 지원 가능 여부와 최종 자격은 원문에서 확인해 주세요."])
+        if row.get('ranking'):
+            rank = row['ranking']
+            lines.append(f"  - 추천 순위 {rank['rank']} / {'vLLM 목적 재평가' if rank['method'] == 'vllm' else '규칙 기반 정렬'}"
+                         ' · 순위 점수는 수급 가능성이나 정책 효과 확률이 아닙니다.')
+        for match in row.get('purpose_matches', []):
+            if match.get('evidence_ids'):
+                lines.append(f"  - 정책 탐색 가설: {clean(match['label'])} / 연결 근거 ID: "
+                             + ', '.join(f"`{key}`" for key in match['evidence_ids'])
+                             + '. 관측된 활동 감소와 연결한 검토 목적이며 필요·원인 확정이 아닙니다.')
+        related = [s for s in row.get('related_sources', []) if s['url'] != row['url']]
+        if related:
+            lines.append('  - 같은 정책의 공식 자료: ' + ' / '.join(
+                f"[{clean(s['title'])}](<{s['url']}>)" for s in related))
+    if result.get('reranking', {}).get('status') == 'fallback':
+        lines.append('- 목적 재평가가 검증을 통과하지 못해 규칙 기반 순위를 제공합니다.')
+    if result.get('regional_options'):
+        lines.append('\n**시군구 확인 후 검토할 지역 사업 — 시도 전체 적용 추천과 구분**')
+        for option in result['regional_options'][:5]:
+            title = str(option['title']).replace('[', '［').replace(']', '］').replace('\n', ' ')
+            lines.append(f"- {option['region']}: [{title}](<{option['url']}>) / 해당 지역 거주·이용 자격과 접수 여부 확인 필요")
+        lines.append('- 실제 거주·이용 시군구를 지정하면 해당 사업의 대상 조건과 신청 경로를 좁혀 추천합니다.')
     if result.get('historical'):
         lines.append('\n**과거 확인 자료 — 현재 상태 미확인 · 현재 추천 아님**')
         for row in result['historical']:
@@ -68,6 +90,8 @@ def with_policy_response(method):
         except (OSError, ValueError):
             return method(self, question, *args, **kwargs) + '\n정책 검색 출처 설정을 확인할 수 없습니다.'
         with policy_session():
+            SESSION.get()['observations'] = []
             evidence = method(self, question, *args, **kwargs)
+            context = enrich_context(config, context, SESSION.get()['observations'])
             return evidence + '\n' + '\n'.join(policy_lines(config, context=context))
     return wrapped

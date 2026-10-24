@@ -1,0 +1,14 @@
+[
+  {"id":"meal-purpose","question":"서울 50대 남성 식사 지원 정책","expected":["meal"],"docs":[{"id":"a","support":"주거 상담"},{"id":"b","support":"문화 강좌"},{"id":"c","support":"디지털 교육"},{"id":"meal","support":"식사 지원과 공동 식사"}]},
+  {"id":"counselling-purpose","question":"서울 정신건강 상담 정책","expected":["counselling"],"docs":[{"id":"a","support":"문화 강좌"},{"id":"b","support":"주거 정보"},{"id":"c","support":"체육 활동"},{"id":"counselling","support":"정신건강 상담 지원"}]},
+  {"id":"persistent-checkin","question":"서울 50대 남성 지원 정책","detection":"persistent","expected_first":"watch","expected":["watch"],"docs":[{"id":"activity","support":"관계망 교류 모임"},{"id":"watch","support":"안부 확인 정기 방문"}]},
+  {"id":"single-decline-participation","question":"서울 50대 남성 지원 정책","detection":"single","expected_first":"activity","expected":["activity"],"docs":[{"id":"watch","support":"안부 확인 정기 방문"},{"id":"activity","support":"관계망 교류 모임"}]},
+  {"id":"current-before-upcoming","question":"서울 관계망 정책","expected_first":"current","expected":["current"],"docs":[{"id":"future","support":"관계망 교류","period":"2027.01.01 ~ 2027.02.01"},{"id":"current","support":"문화 강좌"}]},
+  {"id":"unknown-after-current","question":"서울 관계망 정책","expected_first":"current","expected":["current"],"docs":[{"id":"unknown","support":"관계망 교류","period":"예산 소진 시까지"},{"id":"current","support":"문화 강좌"}]},
+  {"id":"closed-excluded","question":"서울 관계망 정책","expected":["current"],"excluded":["closed"],"docs":[{"id":"closed","support":"관계망 교류","period":"2025.01.01 ~ 2025.02.01"},{"id":"current","support":"관계망 교류"}]},
+  {"id":"age-ineligible","question":"서울 50대 남성 관계망 정책","expected":["eligible"],"excluded":["youth"],"docs":[{"id":"youth","support":"관계망 교류","target":"서울시 주민 만 20~29세"},{"id":"eligible","support":"관계망 교류","target":"서울시 주민 만 40~59세"}]},
+  {"id":"sex-ineligible","question":"서울 50대 남성 관계망 정책","expected":["eligible"],"excluded":["women"],"docs":[{"id":"women","support":"관계망 교류","target":"서울시 여성 주민"},{"id":"eligible","support":"관계망 교류"}]},
+  {"id":"province-scope","question":"서울 관계망 정책","expected":["province"],"excluded":["district"],"docs":[{"id":"district","support":"관계망 교류","target":"강남구 주민"},{"id":"province","support":"관계망 교류"}]},
+  {"id":"same-policy-sources","question":"서울 관계망 정책","expected":["notice"],"groups":1,"docs":[{"id":"press","name":"관계망 회복 사업","title":"관계망 사업 보도자료","support":"관계망 교류"},{"id":"notice","name":"관계망 회복 사업","title":"관계망 사업 모집 공고","support":"관계망 교류"}]},
+  {"id":"separate-rounds","question":"서울 관계망 정책","expected":["first","second"],"groups":2,"docs":[{"id":"first","name":"관계망 회복 사업","round":1,"support":"관계망 교류"},{"id":"second","name":"관계망 회복 사업","round":2,"support":"관계망 교류"}]}
+]

@@ -107,7 +107,8 @@ def test_key_missing_empty_search_and_deadline_are_distinct(config, monkeypatch)
     assert failed['status'] == 'failed'
     empty = search.lookup(config, context(config), now=NOW, search=lambda *args: [])
     assert empty['status'] == 'no_results' and not empty['errors']
-    ticks = iter([0, 31, 32, 33, 34])
+    from itertools import chain, repeat
+    ticks = chain([0, 31, 32, 33, 34], repeat(35))
     deadline = search.lookup(config, context(config), now=NOW, clock=lambda: next(ticks),
                              search=lambda *args: pytest.fail('called past deadline'))
     assert deadline['status'] == 'failed'

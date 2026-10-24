@@ -143,6 +143,8 @@ class EvidenceAgent:
                 filters["signal"] = "consumption"
         selected_month = filters.get("month") or self.tools.results.month.max()
         candidates = self.tools.rank_activity_declines(**filters, limit=3)
+        from activity_agent.policies.matching import observe_candidates
+        observe_candidates(candidates, 'activity')
         if candidates.empty:
             return (f"{selected_month} / 선택 조건에서 계산 가능한 결과가 없습니다. "
                     "기간 부족, 공간 매핑 부재, 연령 구간 또는 0인 기준값을 확인해 주세요. 자료에 없는 현황은 추정하지 않습니다.")
