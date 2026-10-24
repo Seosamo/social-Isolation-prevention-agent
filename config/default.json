@@ -22,6 +22,9 @@
   },
   "policies": {
     "provider": "tavily",
+    "agent_loop": true,
+    "agent_max_rounds": 3,
+    "agent_timeout_seconds": 60,
     "rerank": true,
     "search_sources_file": "references/policy_search_sources.json",
     "timeout_seconds": 30,

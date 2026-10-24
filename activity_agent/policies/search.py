@@ -302,7 +302,8 @@ def history(config, context, registry):
     return sorted(rows.values(), key=lambda r: r['checked_at'], reverse=True)[:3]
 
 
-def lookup(config, context, *, search=None, fetch=None, now=None, client=None, clock=time.monotonic):
+def lookup(config, context, *, search=None, fetch=None, now=None, client=None, clock=time.monotonic,
+           strategy='initial', budget_deadline=None, persist=True, seen_urls=()):
     settings = config.values.get('policies', {})
     now = now or datetime.now(KST)
     now = now.astimezone(KST)
@@ -322,6 +323,8 @@ def lookup(config, context, *, search=None, fetch=None, now=None, client=None, c
         scopes = [s for name in names for s in registry if s['region'] == name]
         domains = [d for s in scopes for d in s['domains']]
         deadline = started + min(30., max(1., float(settings.get('timeout_seconds', 30))))
+        if budget_deadline is not None:
+            deadline = min(deadline, budget_deadline)
         search = search or TavilyClient().search
         fetch = fetch or MunicipalClient(domains, deadline=deadline,
             request_timeout=min(8, float(settings.get('page_timeout_seconds', 6)))).fetch
@@ -338,8 +341,22 @@ def lookup(config, context, *, search=None, fetch=None, now=None, client=None, c
                    f'{purpose} 관계망 지원 서비스 이용 대상 신청 방법 -filetype:pdf -filetype:hwp']
         query_domains = [local_domains or national_domains, local_domains or national_domains,
                          national_domains, national_domains]
+        if strategy != 'initial':
+            plans = {
+                'local_services': ([f'{selected["region"]} {purpose} 지원대상 신청방법 서비스',
+                                    f'{selected["region"]} {supplemental} 복지관 주민센터 참여 신청'],
+                                   [local_domains or national_domains] * 2),
+                'national_programs': ([f'{purpose} {demographic} 전국 지원사업 대상 신청방법',
+                                       f'{purpose} 복지서비스 이용 대상 주민센터 신청'], [national_domains] * 2),
+                'evidence_support': ([f'{selected["region"]} {supplemental} 지원 대상 신청방법',
+                                      f'{supplemental} {demographic} 서비스 신청 방법'],
+                                     [local_domains or national_domains, national_domains]),
+            }
+            if strategy not in plans:
+                raise ValueError('Unsupported search strategy')
+            queries, query_domains = plans[strategy]
         searches, successful = [], 0
-        count = min(4, max(1, int(settings.get('max_searches', 4))))
+        count = min(len(queries), 4, max(1, int(settings.get('max_searches', 4))))
         parallel = settings.get('parallel_search', True) and (isinstance(getattr(search, '__self__', None), TavilyClient)
                     or getattr(search, 'supports_parallel', False))
         pool, futures = None, []
@@ -376,7 +393,7 @@ def lookup(config, context, *, search=None, fetch=None, now=None, client=None, c
         if pool:
             pool.shutdown(wait=False, cancel_futures=True)
         fused = fuse_results(searches)
-        found = select_documents(fused, [key for key, _ in searches],
+        found = select_documents([row for row in fused if row['url'] not in seen_urls], [key for key, _ in searches],
             min(8, max(1, int(settings.get('max_detail_pages', 8)))))
         references = {}
         reference_path = config.root / settings.get('service_sources_file', 'references/policy_service_sources.json')
@@ -389,7 +406,7 @@ def lookup(config, context, *, search=None, fetch=None, now=None, client=None, c
             # policy result. Reserve one detail slot; never fabricate eligibility.
             if references:
                 url, reference = next(iter(references.items()))
-                if not any(row['url'] == url for row in found):
+                if url not in seen_urls and not any(row['url'] == url for row in found):
                     guide = {
                         'url': url, 'title': reference['required_title'], 'search_score': 0.,
                         'search_rank': len(fused) + 1, 'search_hits': [], 'aliases': [url],
@@ -524,8 +541,10 @@ def lookup(config, context, *, search=None, fetch=None, now=None, client=None, c
             except Exception as error:
                 result['errors'].append({'stage': 'detail', 'url': row['url'], 'kind': type(error).__name__})
         grouped = group_policies(result['policies'])
+        if not persist:
+            result['_candidates'] = result['policies']
         ranked = rank_policies(grouped, context)
-        ranked, result['reranking'] = rerank(ranked, context, client if settings.get('rerank', True) else None,
+        ranked, result['reranking'] = rerank(ranked, context, client if persist and settings.get('rerank', True) else None,
                                              min(5., max(0., deadline - clock())))
         for policy in ranked:
             labels = list(dict.fromkeys(m['label'] for m in policy['purpose_matches']))
@@ -554,6 +573,8 @@ def lookup(config, context, *, search=None, fetch=None, now=None, client=None, c
         result['status'] = 'failed'
         result['errors'].append({'stage': 'setup', 'kind': type(error).__name__})
     result['elapsed_seconds'] = max(0., clock() - started)
+    if not persist:
+        return result
     try:
         directory = config.output / 'policies/lookups'
         directory.mkdir(parents=True, exist_ok=True)

@@ -3,8 +3,9 @@ import inspect
 import json
 from functools import wraps
 
-from .search import SESSION, POLICY_WORDS, lookup, policy_session, question_context
+from .search import SESSION, POLICY_WORDS, policy_session, question_context
 from .matching import enrich_context
+from .agent import search_policies as lookup
 
 
 def recommend(config, region=None, limit=3, now=None, **kwargs):
@@ -74,7 +75,7 @@ def policy_lines(config, region=None, *, context=None, result=None):
 
 
 def with_policy_response(method):
-    """One policy lookup per answer, including when no anomaly was detected."""
+    """One memoized exploration per answer, including when no anomaly was detected."""
     signature = inspect.signature(method)
 
     @wraps(method)
