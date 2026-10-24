@@ -146,7 +146,7 @@ def test_agent_does_not_invent_missing_context_or_resources(complete_pipeline):
     tools = QueryTools(complete_pipeline)
     answer = EvidenceAgent(tools).answer("이번 달 50대 남성 활동 위축과 예방 프로그램 추천")
     assert "202512" in answer and "고립 확률이 아닙니다" in answer
-    assert "시도 또는 시군구를 지정" in answer
+    assert "정책 조회" in answer and "시도 또는 시군구를 지정" not in answer
     assert "계산 가능한 결과가 없습니다" in EvidenceAgent(tools).answer("2026-09 위험 지역")
     assert "통합 탐지의 연령 구간" in EvidenceAgent(tools).answer("70대 위험 지역")
     assert tools.find_prevention_resources().empty

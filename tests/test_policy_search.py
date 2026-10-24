@@ -126,7 +126,7 @@ def test_invalid_region_no_network_and_specific_question_context(config):
     assert search.question_context(config, '원주 정책')['region'] == '원주시'
     assert search.question_context(config, '서울에서 고립 예방 정책')['region'] == '서울특별시'
     assert search.question_context(config, '강남구의 정책')['region'] == '강남구'
-    assert search.question_context(config, '점수 11 지원 정책')['region'] is None
+    assert search.question_context(config, '점수 11 지원 정책')['region'] == '전국'
 
 
 def test_llm_extraction_quotes_are_validated_and_instructions_are_data():
@@ -223,7 +223,7 @@ def test_vllm_failure_reuses_policy_lookup(config, monkeypatch):
         settings = VLLMSettings()
         def chat(self, system, user, **kwargs):
             if '허용 키' in system:
-                return json.dumps({'region': '서울', 'policies': True})
+                return json.dumps({'region': '서울'})
             raise VLLMError('summary offline')
     class Agent:
         backend = None

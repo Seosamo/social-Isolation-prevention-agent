@@ -23,7 +23,7 @@ from .tables import policy_rows
 
 KST = timezone(timedelta(hours=9))
 SESSION = ContextVar('policy_lookup_session', default=None)
-POLICY_WORDS = ('예방', '추천', '지원', '프로그램', '정책')
+OUTSIDE_REGIONS = re.compile(r'부산|대구|인천|광주|대전|울산|세종|경기|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주')
 
 
 class MissingSearchKey(ValueError):
@@ -63,19 +63,22 @@ def policy_session(client=None):
         SESSION.reset(token)
 
 
-def resolve_region(registry, region):
-    if not region:
-        return None
-    if re.search(r'부산|대구|인천|광주|대전|울산|세종|경기|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주', str(region)):
-        return None
+def region_mentions(registry, region):
+    """Registered geographic names, preserving the resolver's word boundaries."""
     def names(source):
         aliases = [source['region'], *source.get('aliases', [])]
         if source.get('parent') and len(source['region']) > 2:
             aliases.append(source['region'][:-1])
         return [alias for alias in aliases if not alias.isdigit() or str(region).strip() == alias]
-    matches = [s for s in registry if any(
+    return [s for s in registry if any(
         re.search(r'(?<![가-힣])' + re.escape(alias) + r'(?:에서|의|은|는|을|를|과|와|이|가|도|에)?(?![가-힣])', str(region))
         for alias in names(s))]
+
+
+def resolve_region(registry, region):
+    if not region or OUTSIDE_REGIONS.search(str(region)):
+        return None
+    matches = region_mentions(registry, region)
     parents = {s['region'] for s in matches if not s.get('parent') and s['region'] != '전국'}
     if len(parents) > 1 or len([s for s in matches if s.get('parent')]) > 1:
         return None
@@ -85,9 +88,25 @@ def resolve_region(registry, region):
     return next((s for s in matches if s.get('parent')), matches[0] if matches else None)
 
 
+def municipality_mentions(text):
+    """Conservative administrative-name hints, excluding common analysis nouns."""
+    words = re.findall(r'(?<![가-힣0-9])([가-힣]{2,}(?:시|군|구))(?=\s|에서|의|은|는|을|를|에|$)', text)
+    ordinary_endings = ('가구', '인구', '욕구', '요구', '도구', '연구', '문구',
+                        '표시', '예시', '당시', '동시', '즉시', '필요시',
+                        '신청시', '이용시', '방문시', '등록시', '제출시',
+                        '위험군', '취약군', '대조군', '실험군', '집단군')
+    return [word for word in words if not word.endswith(ordinary_endings)]
+
+
 def question_context(config, question, region=None, age=None, sex=None):
     registry = source_registry(config)
     selected = resolve_region(registry, region) if region else resolve_region(registry, question)
+    # Missing geography means national programs; explicit invalid/ambiguous places
+    # must still be clarified rather than silently changing the requested scope.
+    has_place = (region or region_mentions(registry, question) or OUTSIDE_REGIONS.search(question)
+                 or municipality_mentions(question))
+    if selected is None and not has_place:
+        selected = resolve_region(registry, '전국')
     band = re.search(r'([1-9]0)\s*대', question)
     purposes = {'정신건강': '정신건강 상담', '상담': '정신건강 상담', '관계망': '사회적 관계망',
                 '식사': '식사 지원', '돌봄': '돌봄 안부확인', '안부': '안부확인',
@@ -221,20 +240,28 @@ def compatible(fields, context, source, registry):
     if not requested:
         return False
     residency = re.findall(r'([가-힣]+(?:시|군|구))\s*(?:거주|주민|민\b)', target)
-    allowed_names = {requested['region'], requested.get('parent'), '서울시' if own_is_seoul(requested) else '강원도'}
-    if residency and not any(name in allowed_names for name in residency) and '전국' not in target:
-        return False
-    # Scope restrictions on provincial/national pages must not become universal offers.
     districts = [s['region'] for s in registry if s.get('parent') and s['region'] in target]
-    if districts and (not requested.get('parent') or requested['region'] not in districts):
-        return False
-    other_province = '강원' if requested['region'] == '서울특별시' or requested.get('parent') == '서울특별시' else '서울'
-    own_province = '서울' if other_province == '강원' else '강원'
-    if other_province in target and own_province not in target and '전국' not in target:
-        return False
-    if source['region'] == '전국' and not source.get('national_program') and not any(token in target for token in
-            ('전국', '국민', '누구나', requested['region'], requested.get('parent') or requested['region'], own_province)):
-        return False
+    if requested['region'] == '전국':
+        local_scope = any(s['region'] != '전국' for s in region_mentions(registry, target))
+        if (source['region'] != '전국' or residency or districts or local_scope
+                or OUTSIDE_REGIONS.search(target) or municipality_mentions(target)):
+            return False
+        if not source.get('national_program') and not any(token in target for token in ('전국', '국민')):
+            return False
+    else:
+        allowed_names = {requested['region'], requested.get('parent'), '서울시' if own_is_seoul(requested) else '강원도'}
+        if residency and not any(name in allowed_names for name in residency) and '전국' not in target:
+            return False
+        # A central-government page can still describe a municipality-only offer.
+        if districts and (not requested.get('parent') or requested['region'] not in districts):
+            return False
+        other_province = '강원' if own_is_seoul(requested) else '서울'
+        own_province = '서울' if other_province == '강원' else '강원'
+        if other_province in target and own_province not in target and '전국' not in target:
+            return False
+        if source['region'] == '전국' and not source.get('national_program') and not any(token in target for token in
+                ('전국', '국민', '누구나', requested['region'], requested.get('parent') or requested['region'], own_province)):
+            return False
     sex = context.get('sex')
     if sex and (('남성' if sex == '여성' else '여성') in target) and sex not in target:
         return False

@@ -52,7 +52,8 @@ def enrich_context(config, context, observations):
     matched = []
     for item in observations:
         scope = resolve_region(registry, item.get('region'))
-        if not scope or not (scope['region'] == selected['region'] or scope.get('parent') == selected['region']):
+        if not scope or not (selected['region'] == '전국' or scope['region'] == selected['region']
+                             or scope.get('parent') == selected['region']):
             continue
         if any(context.get(key) and str(context[key]) != str(item.get(key)) for key in ('age', 'sex')):
             continue

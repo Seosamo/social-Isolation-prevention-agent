@@ -40,7 +40,7 @@ def test_model_check_and_invalid_response():
         client.chat("s", "q")
 
 
-@pytest.mark.parametrize("text", ['{"age":"70"}', '{"month":"202513"}', '{"command":"delete"}', '[]', '{"sex":[]}', 'bad'])
+@pytest.mark.parametrize("text", ['{"age":"70"}', '{"month":"202513"}', '{"command":"delete"}', '{"policies":true}', '[]', '{"sex":[]}', 'bad'])
 def test_invalid_plans_are_rejected(text):
     with pytest.raises(VLLMError):
         parse_plan(text)
@@ -81,7 +81,7 @@ def test_unsubstantiated_summary_and_plan_failure_fall_back(config):
 
 def test_activity_agent_integration(complete_pipeline):
     from activity_agent.activity.queries import EvidenceAgent, QueryTools
-    client = FakeClient({"month": "202512", "sex": "남성", "age": "50", "signal": "mobility", "policies": True})
+    client = FakeClient({"month": "202512", "sex": "남성", "age": "50", "signal": "mobility"})
     result = EvidenceAgent(QueryTools(complete_pipeline), VLLMBackend(complete_pipeline, client)).answer("최신 남성 활동과 지원")
     assert "도구 조회 근거 원문" in result and "근거 ID" in result and "고립 확률이 아닙니다" in result
     assert len(client.messages) == 2

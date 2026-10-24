@@ -3,7 +3,7 @@ import inspect
 import json
 from functools import wraps
 
-from .search import SESSION, POLICY_WORDS, policy_session, question_context
+from .search import SESSION, policy_session, question_context
 from .matching import enrich_context
 from .agent import search_policies as lookup
 
@@ -27,8 +27,10 @@ def policy_lines(config, region=None, *, context=None, result=None):
                 session['results'][key] = result
     status = result['status']
     if status == 'region_required':
-        return ['정책 검색에는 서울·강원의 시도 또는 시군구를 지정해 주세요. 전국 공통 정책도 함께 검색합니다.']
+        return ['정책 검색 지역을 확인할 수 없습니다. 서울·강원의 시도 또는 시군구를 지정하거나 전국으로 검색해 주세요.']
     lines = [f"\n**정책 조회 · {result['checked_at']} · 분석 월과 별개인 현재 기준**"]
+    if result.get('context', {}).get('region') == '전국':
+        lines.append('- 정책 검색 범위: 전국 공통 · 특정 지역 거주를 추정하지 않습니다.')
     if status in {'failed', 'partial'}:
         lines.append('- 실시간 정책 검색 또는 일부 공식 원문 확인에 실패했습니다.'
                      ' 아래에는 이번 요청에서 확인한 근거만 표시합니다.')
@@ -75,12 +77,14 @@ def policy_lines(config, region=None, *, context=None, result=None):
 
 
 def with_policy_response(method):
-    """One memoized exploration per answer, including when no anomaly was detected."""
+    """Always attach one memoized policy exploration, even without anomalies."""
     signature = inspect.signature(method)
 
     @wraps(method)
     def wrapped(self, question, *args, **kwargs):
-        if self.backend or not any(word in question for word in POLICY_WORDS):
+        if not question.strip():
+            return '질문을 입력해 주세요.'
+        if self.backend:
             return method(self, question, *args, **kwargs)
         config = self.config if hasattr(self, 'config') else self.tools.config
         bound = signature.bind(self, question, *args, **kwargs)
