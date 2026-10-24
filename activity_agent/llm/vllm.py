@@ -4,6 +4,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
+from importlib import resources
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -158,6 +159,20 @@ ANSWER_PROMPT = """지역·집단 활동과 고립 의심 분석을 설명하는
 간결한 요약과 후속 확인 사항을 작성한다. 근거 ID와 원문 링크는 뒤에 시스템이 그대로 첨부한다."""
 
 
+def load_answer_prompt():
+    """Read the packaged style document per request so edits need no restart."""
+    try:
+        document = resources.files('activity_agent.llm').joinpath(
+            'prompts', 'activity_response.md').read_text(encoding='utf-8').strip()
+    except (OSError, UnicodeError):
+        raise VLLMError('응답 프롬프트 파일을 읽을 수 없습니다. 배포 파일과 UTF-8 인코딩을 확인해 주세요.') from None
+    if not document:
+        raise VLLMError('응답 프롬프트 파일이 비어 있습니다. 응답 생성 지침을 확인해 주세요.')
+    return (ANSWER_PROMPT + '\n\n아래 문서는 답변 구성과 문체 지침이다. 충돌 시 위의 근거 검증 원칙을 우선한다. '
+            '문서의 예시 수치·코드·정책은 조회 사실이 아니므로 실제 근거에 없으면 답변에 사용하지 않는다.\n\n'
+            + document)
+
+
 def parse_plan(text):
     text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
     try:
@@ -244,7 +259,7 @@ class VLLMBackend:
             if structured is not None:
                 source += "\n\n구조화 근거:\n" + json.dumps(structured, ensure_ascii=False, indent=2, allow_nan=False)
             stage = "설명 생성"
-            summary = self.client.chat(ANSWER_PROMPT, json.dumps(payload, ensure_ascii=False, allow_nan=False))
+            summary = self.client.chat(load_answer_prompt(), json.dumps(payload, ensure_ascii=False, allow_nan=False))
             stage = "근거 검증"
             # Reject unsupported claims as the answer, but retain them as literal diagnostics.
             numbers = lambda s: set(re.findall(r"\d+(?:\.\d+)?", s))
