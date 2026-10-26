@@ -1,274 +1,324 @@
-# 지역 활동 위축 탐지·예방 Agent
+# 📢 사회활동 위축 탐지 및 예방 AI Agent
 
-SKT 통신 유동인구와 신한카드 집계 자료를 정제하고, 지역·집단의 활동 위축 신호를 계산하는 초기 파이프라인입니다. 규칙 탐지, 약한 라벨, 검토 이력, 지도학습 실험, 근거 조회와 로컬 대시보드를 연결합니다.
 
-**결과는 개인의 고립 판정이나 검증된 고립 확률이 아닙니다.** 규칙 라벨을 학습한 모델의 높은 성능은 규칙과의 일치도를 뜻합니다. 실제 고립 탐지 성능을 주장하려면 분석 단위·기간에 대응하는 독립 조사·현장 확인 자료가 필요합니다.
+**2026 빅콘테스트 | AI데이터 활용 분야**  
+**주제: 사회적 고립 예방 및 대응을 위한 AI 에이전트 개발**
 
-## 설치와 실행
+본 프로젝트는 SKT 유동인구, 신한카드 소비 집계 및 공공 통계를 활용해 **활동 패턴이 이례적으로 위축된 지역 및 집단을 탐색**합니다. 비지도 이상탐지 모델이 후보를 선정하면 AI Agent가 근거를 분석하고 공식 복지정책을 연결해 후속 확인과 지원 연계를 돕습니다. 
 
-Python 3.11 이상을 사용합니다. 아래는 저장소 루트에서 실행하는 Windows PowerShell 명령입니다.
+> ⚠️
+> 탐지 결과는 **개인의 사회고립 판정이나 고립 확률이 아닙니다.** 분석 단위는 지역·성별·연령대·월별 집계이며, 현장 확인을 위한 **활동 위축 후보**로 해석해야 합니다.
 
-```powershell
-python -m venv .venv
-python -m pip --python .venv/Scripts/python.exe install -e ".[dev]"
-.venv/Scripts/python.exe -m activity_agent run-all
-.venv/Scripts/python.exe -m activity_agent dashboard
-```
+⠀ 
+## 목차
 
-`venv`가 `ensurepip` 단계에서 실패했지만 `.venv/Scripts/python.exe`는 만들어진 경우, 시스템 Python의 pip로 두 번째 명령을 실행할 수 있습니다. 활성화 스크립트 실행은 필요하지 않습니다. 기본 대시보드 주소는 `http://localhost:8501`입니다.
+1. [대회 주제 및 목적](#1-대회-주제-및-목적)
+2. [활용 데이터 구성](#2-활용-데이터-구성)
+3. [활동 위축 이상탐지 모델](#3-활동-위축-이상탐지-모델)
+4. [전체 AI Agent 파이프라인](#4-전체-ai-agent-파이프라인)
+5. [설치 및 실행법](#5-설치-및-실행법)
+6. [프로젝트 구조](#6-프로젝트-구조)
 
-원자료는 다음 구조를 유지합니다. 원자료와 실행 산출물, 가상환경은 Git에서 제외됩니다.
+⠀ 
+## 1. 대회 주제 및 목적
 
-검증 환경의 전체 패키지 버전은 `requirements.lock.txt`에 고정했습니다. 동일 환경이 필요하면 해당 파일을 먼저 설치한 뒤 `install -e . --no-deps`로 프로젝트를 설치하세요.
+사회적 고립 문제는 사후 대응뿐 아니라 **활동 변화의 조기 발견과 적절한 지역사회 지원**이 중요합니다. 본 프로젝트는 데이터 기반으로 이상 징후를 탐색하고, 탐지 결과와 실제 지원 자원을 연결하는 의사결정 지원 Agent를  목표합니다. 
+
+| 단계 | 목표 | 주요 기능 |
+|---|---|---|
+| **Detect** | 위축 징후 조기 탐색 | 지역·성·연령 집단의 유동 변화 기반 비지도 이상탐지 |
+| **Explain** | 판단 근거 제시 | 감소 지표, 유사 집단 비교, 데이터 품질 및 후보 선정 사유 조회 |
+| **Connect** | 예방 및 대응 지원 | 중앙정부와 지자체 정책 검색, 공식 원문 검증, 관련 서비스 안내 |
+
+✅모델 점수만으로 위험을 확정하지 않고, *이상 점수 → 감소 및 품질 조건 확인 → 근거 분석 → 정책 검토*의 과정으로 진행됩니다.
+ 
+⠀ 
+## 2. 활용 데이터 구성
+
+| 데이터 | 주요 항목 | 활용 목적 | 출 |
+|---|---|---|---|
+| **SKT 성·연령별 유동인구** | 월, 소지역, 성별, 10세 단위 연령별 유동량 | 집단 활동 감소 및 상대 감소 분석 | 대회 제공 데이터
+| **SKT 시간대별 유동인구** | 소지역별 0~23시 일평균 유동량 | 소지역 전체의 시간대별 활동 변화 | 대회 제공 데이터
+| **SKT 요일별 유동인구** | 소지역별 월~일 일평균 유동량 | 소지역 전체의 평일과 주말 간 활동 변화 | 대회 제공 데이터
+| **신한카드 소비 집계** | 가맹점 소재 시군구, 업종, 고객 집단, 결제금액 및 건수 | 소비활동 변화와 지역 맥락 분석 | 대회 제공 데이터
+| **공공 구조 통계** | 1인가구, 독거노인, 주민등록 세대수, 고독사 현황 등 | 구조적 취약성, 지역 배경 참고 | 공공 데이터 포털 (https://www.data.go.kr/)
+| **공식 복지정책 정보** | 지역, 대상, 서비스, 신청 방법·기간 | 관련 지원 정책의 검색·검증·추천 | 각 지자체 홈페이지 및 중앙정부 홈페이지
+
+
+대회 제공 데이터는 저장소에 포함하지 않습니다. 고로 재현을 위해선 유사 데이터를 별도로 확보할 것을 권장드립니다. 🙇‍♂️
+
+⠀ 
+## 3. 활동 위축 이상탐지 모델
+
+### 3.1. 모델 및 특징량
+
+실제 사회고립 정답 라벨이 없기 때문에 **Isolation Forest 기반 비지도 이상탐지**를 사용합니다. 현재 운영 모델은 특징량 실험에서 선택한 `IF_F2` 모델입니다.
+
+- **기본 6개 특징량(F0):** 현재·직전의 집단 유동 감소율, 소지역 전체의 낮 활동 감소율, 주말 활동 감소율
+- **추가 2개 특징량(F2):** 지역 전체 대비 집단의 **상대 감소율**, 지역 내 해당 집단의 **유동 비중 변화**
+
+활동 감소율은 현재 월의 유동량을 직전 2개월 평균과 비교해 계산합니다.
+
+$$
+\text{Decline}_t = \frac{\text{Mean}(F_{t-2},F_{t-1})-F_t}{\text{Mean}(F_{t-2},F_{t-1})}
+$$
+
+양수는 감소, 음수는 증가를 나타냅니다. 
+
+이때 낮과 주말의 활동 변화는 특정 성·연령 집단이 아니라 **해당 소지역 전체의 보조 신호**로 사용합니다.
+
+⠀ 
+### 3.2. 학습 및 후보 선정
+
+| 항목 | 설정 |
+|---|---|
+| 학습 기간 | 2025년 10월 |
+| 평가 기간 | 2025년 11~12월 |
+| 지역 | 서울, 강원 |
+| 관측 단위 | 소지역 × 성별 × 연령 × 월 |
+| 데이터 분할 | 소지역 기준 8:2 Group Split (학습 / 임계값 보정) |
+| 이상 경계 | 보정 표본의 이상 점수 **95% 분위수** |
+| 운영 모델 | Isolation Forest `IF_F2` (8개 특징량) |
+
+최종 후보는 **① 모델 점수 경계 초과 ② 집단 유동 10% 이상 감소 ③ 소지역 전체 낮 또는 주말 활동 감소 ④ 충분한 품질·관측 범위**를 함께 충족해야 합니다. 이때, 소량 유동 및 결측·관측 범위 부족 사례는 임의로 0을 채우는 대신 판정을 보류합니다.
+
+⠀ 
+
+### 3.3. 모델 비교 결과
+
+정답 데이터의 부재를 보완하기 위해 **Synthetic Anomaly Injection**으로 유동량을 인위적으로 변화시킨 뒤 후보 선정률을 비교했습니다.
+
+| 모델 | S1: 특정 집단 30% 감소 | S7: 지역 공통 감소 |
+|---|---:|---:|
+| `IF_F0` (Baseline)| 15.6% | 15.6% |
+| `IF_F2` | **61.5%** | **10.4%** |
+| `IF_F4` (전체 신규 특징) | 62.5% | 17.7% |
+| `KNN_F4` | 68.8% | 66.7% |
+| `LOF_F4` | 65.6% | 69.8% |
+
+`IF_F2`는 **특정 집단의 선택적 감소**에는 민감하면서 지역 전체의 공통 감소에는 비교적 낮게 반응하여 운영 모델로 선택했습니다. (KNN과 LOF는 S1 반응률은 높지만 공통 감소에도 민감했습니다.)
+
+> ⚠️
+> 이 표는 **합성 변화에 대한 후보 선정률**입니다. 실제 사회고립 탐지의 정확도나 재현율은 아니며, S7 지역 공통 감소가 무조건 오탐이라는 뜻도 아닙니다. 자세한 실험 조건은 [`docs/anomaly-experiments.md`](docs/anomaly-experiments.md)를 참고하세요.
+
+⠀ 
+## 4. 전체 AI Agent 파이프라인
+
+<p align="center">
+  <img src="images.png" alt="전체 파이프라인" width="900">
+</p>
+
+### 4.1. Agent 분석 Tool
+
+| Tool | 기능 |
+|---|---|
+| `candidates`, `candidate_evidence` | 이상 후보 조회, 점수·감소·품질·선정 근거 반환 |
+| `rank_activity_declines`, `get_evidence` | 일반 활동 감소 순위 및 상세 근거 |
+| `compare_peers` | 활동 규모와 조건이 유사한 집단 비교 |
+| `get_local_patterns` | 해당 소지역 전체의 낮·주말 활동 패턴 |
+| `get_card_context` | 제공 범위 내 시군구 소비 맥락 |
+
+⠀ 
+
+### 4.2. 복지정책 검색 및 검증
+
+복지정책 조회가 요청되면 Agent는 지역·연령·지원 목적과 확인된 활동 감소 근거를 사용해 탐색합니다.
+
+1. **공식 출처 검색:** 중앙정부 및 지역 공식 사이트에서 정책 후보를 수집합니다.
+2. **원문 검증:** 실제 HTML 본문을 확인하고 대상, 신청 방법, 기간, 적용 지역을 추출합니다.
+3. **후보 평가:** 지원 목적 관련성(40%), 지역 적합성(25%), 신청 경로 등 실행 가능성(20%), 근거 충실도(15%)를 기준으로 정렬합니다.
+4. **탐색 보완:** 후보가 부족하면 Agent가 *지역 서비스 / 전국 제도 / 탐지 사항 관련 지원* 중 다음 탐색 방향을 선택합니다. 실제 검색과 조건 검증은 코드가 수행합니다.
+5. **결과 제시:** 확인된 지원 조건과 미확인 사항을 구분하고, 정책과 탐지 결과를 연결한 근거 ID를 제공합니다.
+
+* 정책 탐색은 기본적으로 **최대 3회 탐색**, 전체 **60초 한도**로 제한됩니다. 
+* 정책의 현재 접수 여부나 개별 자격이 확인되지 않으면 **확인 필요**로 별도 표시하여 제공합니다. 
+* 정책 순위 점수는 수급 가능성이나 정책 효과 확률이 아닙니다.
+
+⠀ 
+### 4.3. LLM 기반 응답
+
+Agent는 기본 조회 모드와 **LLM 기반 자연어 분석 모드**를 지원합니다.
 
 ```text
-data/
-  skt_통신인구/flow_{age,time,wkdy}_pop_YYYYMM.csv
-  신한카드_카드데이터/*데이터1.txt
-  신한카드_카드데이터/*데이터2.txt
+사용자 질문
+  → LLM의 조회 조건 해석
+  → 검증된 Tool 결과 조회
+  → 필요 시 공식 정책 검색·검증
+  → 근거 중심 한국어 분석 리포트 생성
 ```
 
-단계별 실행과 로컬 질의:
+* LLM은 **질문 해석, 결과 설명, 검색 전략 선택**을 담당 / 이상 점수 계산, 데이터 품질 검사, 정책 자격 조건 검증은 코드가 담당합니다. 
+* 생성 답변에 근거 없는 수치나 URL이 포함되면 검증을 통과한 답변으로 채택하지 않고 기본 조회 모드로 찾은 근거만 제공합니다.
 
-```powershell
-.venv/Scripts/python.exe -m activity_agent validate
-.venv/Scripts/python.exe -m activity_agent preprocess
-.venv/Scripts/python.exe -m activity_agent features
-.venv/Scripts/python.exe -m activity_agent detect
-.venv/Scripts/python.exe -m activity_agent label
-.venv/Scripts/python.exe -m activity_agent report
-.venv/Scripts/python.exe -m activity_agent ask "이번 달 50대 남성 활동 위축과 예방 자원 추천"
-.venv/Scripts/python.exe -m pytest -q
+⠀ 
+## 5. 설치 및 실행법
+
+
+### 5.1. 환경 설정 및 패키지 설치
+
+✔️Python 3.11 이상을 사용하며, 모든 명령어는 Linux 서버의 프로젝트 루트 디렉터리에서 실행합니다.
+
+```bash
+# Python 가상환경 생성
+python3 -m venv .venv
+
+# 가상환경 활성화
+source .venv/bin/activate
+
+# pip 업데이트
+python -m pip install --upgrade pip
+
+# 의존성 패키지 설치
+pip install -r requirements.txt
+
+# 프로젝트 패키지 설치
+pip install -e . --no-deps
 ```
 
-`validate`는 원자료를 읽어 `validation_quality.json`을 작성하며 정제 데이터나 정제 시점의 품질 기록을 갱신하지 않습니다. `run-all`은 정제부터 보고서까지 순서대로 실행합니다. 검토 DB와 모델은 삭제하지 않습니다. 정제 파일 목록을 기록하므로 입력에서 빠진 월의 오래된 파일이 분석에 다시 포함되지 않습니다. 명령의 `--config` 옵션은 하위 명령 앞에 둡니다.
+⠀ 
+### 5.2. 데이터 전처리 및 기본 파이프라인
 
-## 분석 단위와 품질 처리
+```bash
+# 데이터 검증 및 정제
+python -B -m activity_agent validate
+python -B -m activity_agent preprocess
 
-| 신호 | 분석 단위 | 제한 |
-| --- | --- | --- |
-| mobility | 소지역 × 성 × 연령 × 월 | 해당 집단의 유동이며 주민이나 동일인의 이동을 뜻하지 않음 |
-| time_pattern / weekday_pattern | 소지역 전체 × 월 | 성·연령별 시간대·주말 교차통계가 아님 |
-| consumption | 가맹점 시군구 × 성 × 공통 연령 × 월 | 소지역 소비 또는 거주민 소비로 해석하지 않음 |
-| district_mobility | 검증된 매핑의 시군구 × 성 × 연령 × 월 | 매핑이 없으면 생성하지 않음 |
+# 특징량 생성
+python -B -m activity_agent features
 
-- 원자료 공간 키는 `월·소지역 코드·X·Y`입니다. 소지역 코드만으로 원자료를 결합하지 않습니다.
-- 완전 중복은 제거하고, 동일 키에 값이 다른 행과 잘못된 값은 `artifacts/quarantine`에 격리합니다. 합산으로 충돌을 숨기지 않습니다.
-- SKT 비교는 당월과 직전 2개월의 공통 좌표에서 계산합니다. 세 달 중 하나라도 공통 좌표 비중이 80% 미만이면 점수를 보류합니다. 전체 좌표 기준 감소율도 함께 보관합니다.
-- 시간대는 낮 `[09,18)`, 저녁 `[18,22)`, 심야 `[22,24)∪[00,06)`, 아침 `[06,09)`입니다. 주말 비율은 `토·일 평균 / 월~금 평균`입니다.
-- 카드1은 소비 분석의 주자료, 카드2는 이용고객 위치별 소비 구성의 별도 집계입니다. 두 자료의 건수를 합산하지 않습니다. 카드의 날짜를 이용한 일별 기상 보정은 초기 버전에 포함하지 않습니다.
-- 법인은 카드 정제 자료에 보존하지만 인구집단 특징에서 제외합니다. 카드 60~90대를 합쳐 SKT의 `60+`와 맞춥니다. 원래 연령별 소비는 `card_native_monthly.parquet`에 남깁니다.
-- 카드 엔트로피는 업종별 결제건수 비중으로 계산합니다. 관측되지 않은 업종은 0기여이며, 총건수가 0이면 계산 불가입니다.
-- 업종 매핑은 해석을 위한 초기 가정입니다. 외식은 혼밥·필수 식사를 포함하고 여가 소비가 대인 교류를 입증하지 않습니다. `industry_inventory.csv`에서 미분류 업종과 분류 근거를 검토하세요.
-
-## 점수와 라벨
-
-`config/default.json`에서 임계값·경로·활성 엔진을 설정합니다. 초기 설정은 검증된 기준이 아닙니다.
-
-- 감소율은 `(직전 2개월 평균 - 당월) / 직전 2개월 평균`입니다. 음수는 증가, 기준값이 0이거나 자료가 없으면 결측입니다.
-- 유동 점수는 유동 감소율, 소비 점수는 결제건수·사회/여가 건수·엔트로피 감소율의 동일 가중 평균입니다. 감소율을 각각 0~1로 제한해 0~100으로 변환합니다. 소비의 필수 지표 중 하나라도 없으면 점수를 보류합니다.
-- 낮·주말 위축 점수는 설명용 별도 신호입니다. 심야 비중 증가만으로 라벨을 부여하지 않습니다. 서로 다른 신호나 엔진의 점수를 동일 척도로 비교하지 마세요.
-- `1 / 위축 의심`: 두 연속 비교에서 각각 20% 이상 감소. 소비는 총건수와 사회/여가 건수 모두 충족해야 합니다.
-- `0 / 위축 근거 미약`: 두 연속 비교에서 변화가 각각 ±10% 이내. 소비는 사회/여가 건수도 안정 범위여야 합니다. 고립이 없다는 뜻이 아닙니다.
-- `-1 / 판단 보류`: 기간 부족, 저품질, 중간 범위, 상충, 0인 기준값 등. 학습의 음성 표본으로 사용하지 않습니다.
-- 7~8월에는 비교 이력이 부족합니다. 연속 비교 라벨은 빨라도 10월부터 가능합니다.
-- 시군구 통합 라벨은 시군구 유동 라벨과 소비 라벨이 모두 1 또는 모두 0인 경우만 확정하고 나머지는 보류합니다. 소지역으로 카드 라벨을 복제하지 않습니다.
-
-## 공간·예방 참조자료 추가
-
-`references/block_regions.csv`에 `block_code,region,source_url,verified`를 입력합니다. `verified=true`, HTTPS 출처가 있는 고유 매핑만 사용합니다. `region`은 카드 값과 동일한 `서울 강남구`, `강원 춘천시` 형식을 사용하세요. 코드 접두부를 행정구역으로 임의 추정하지 않습니다.
-
-지도는 원본 좌표계의 정확한 EPSG를 확인한 뒤 설정의 `source_crs`에 넣고 `verified_crs=true`로 바꾸면 활성화됩니다. 정의서에는 UTM-K만 기재되어 있어 기본 설정은 비활성입니다. 변환 결과가 예상 한국 영역을 벗어나면 표시하지 않습니다. 지도 선택은 상세 근거 대상과 연결됩니다.
-
-활동·고립 질문에는 정책 추천 요청 여부와 관계없이 Tavily로 새 공고를 검색하고 공식 HTML 원문에서 대상 조건·신청 기간·방법을 확인합니다. 서울·강원 및 산하 시군구, 중앙정부·복지 포털이 대상이며 출처와 지역 계층은 `references/policy_search_sources.json`에서 관리합니다. 검색 API 키는 셸 환경변수로 설정하세요. `.env`는 자동으로 읽지 않습니다.
-
-```powershell
-$env:TAVILY_API_KEY = "발급받은 키"
-python -B -m activity_agent ask --task isolation "2025년 12월 강남구 고립 의심 후보와 지원 정책 추천"
+# 전체 기본 활동 분석 파이프라인 실행
+python -B -m activity_agent run-all
 ```
 
-활동·고립 에이전트의 로컬·vLLM 모드 모두 같은 검색 서비스를 사용하며 이상 후보가 없어도 정책을 검색합니다. 지역을 생략하면 전국 공통 정책만 검색합니다. 지역을 지정하면 해당 지역과 전국 공통 범위를 검색하고 특정 시군구 거주를 추측하지 않습니다. 잘못되거나 모호한 지역은 확인을 요청하며, 빈 질문에는 검색하지 않습니다. 조회 날짜는 한국 시간 기준이며 과거 활동 분석 월과 별개입니다. 새 공고가 검색엔진에 아직 반영되지 않았다면 발견하지 못할 수 있습니다.
+`run-all`은 데이터 정제, 특징량 생성, 기본 활동 탐지 및 보고서 생성을 순차적으로 수행하며, 앞선 단계별 명령은 개별 검증이 필요한 경우에 사용합니다. (처음부터 전체 실행할 때는 `run-all`만 실행해도 됩니다!)
 
-검색어별 결과 순위를 RRF로 통합하고 검색어마다 상위 문서의 원문 확인 기회를 배분합니다. 같은 사업의 여러 공식 자료는 사업명·기관·적용 지역·연도·모집 차수가 확인되고 일치할 때만 하나로 묶습니다. 서로 다른 연도·차수나 식별 정보가 부족한 공고는 분리하고, 조건이 충돌하면 확인 필요로 표시합니다. 상세 동작과 평가 방법은 [정책 추천 설계](docs/policy-recommendation.md)를 참고하세요.
+⠀ 
+### 5.3. 운영 IF_F2 모델 추론
 
-지역 검색과 전국 검색의 도메인을 분리하고 실제 API 검색은 병렬 실행합니다. PDF·HWP·목록·태그 페이지는 원문 확인 전에 분리하며, 공식 서비스 안내는 매번 새로 확인합니다. 사업 목록 표는 개별 사업으로 추출하고 시군별 적용 범위를 유지합니다. 시도만 지정하면 해당 시군을 확인해야 하는 사업은 지역별 선택지로 구분합니다. 대상과 신청 경로가 없는 보도자료는 최종 정책 후보에 넣지 않습니다.
+`config/default.json`의 `isolation.model_id=IF_F2`와 `isolation.model_path`가 저장된 IF_F2 모델을 가리키도록 설정합니다.
 
-평가 가능한 집단 활동 감소는 관계망·지역 활동 참여, 기존 지속 감소 표시가 있는 경우 안부 확인·지속적 관계 지원을 추가로 탐색합니다. 이는 정책 탐색 가설이며 개인의 고립·우울·빈곤·가구 형태를 판단하지 않습니다. 사용자 목적을 우선하고, 탐지 근거 ID와 추천 이유를 함께 표시합니다. 낮·주말·소비 신호만으로 필요를 추론하지 않습니다.
+```bash
+# SGIS 경계 파일 기반 공간 연결 후보 확인 (최초 준비 시)
+python -B -m activity_agent spatial-audit \
+  --boundary-file data/boundaries/sido_2025/bnd_sido_00_2025_2Q.shp
 
-기본 요청 한도는 검색 4회·검색당 결과 5개·공식 원문 8개·전체 30초이며 추천은 최대 3개입니다. `policies.timeout_seconds`, `max_searches`, `max_detail_pages`로 한도를 낮출 수 있습니다. 검색 API에는 지역·연령대·성별·지원 목적만 전달하며 이상치 점수와 소지역 코드는 전달하지 않습니다. 공식 URL·리다이렉트·robots.txt·요청 간격·본문 크기를 검증합니다. 이미지·PDF·HWP에만 있는 조건은 미확인으로 남깁니다. vLLM은 원문 문구를 추출하고 설명하며, 추출 근거 검증 실패 시 규칙으로 확인한 내용만 제공합니다.
+# 저장된 모델로 이상탐지 수행
+python -B -m activity_agent detect --task isolation
 
-원문의 대상·기간 검사는 전체 본문으로 수행하고, 조건과 지원 내용 구간을 최대 4개 선택해 추출·재평가에 사용합니다. 규칙 순위는 모집 상태 그룹을 먼저 적용한 뒤 목적 적합성 40%·적용 지역 25%·신청 정보 20%·근거 충실도 15%로 정합니다. vLLM 모드에서는 상위 6개를 한 번에 재평가하며 목적 적합성 항목만 바꿀 수 있습니다. `policies.rerank=false`로 비활성화할 수 있고, 검증 실패·시간 부족 시 규칙 순위를 유지합니다. 점수는 수급 가능성이나 정책 효과 확률이 아닙니다.
+# 모델 평가
+python -B -m activity_agent evaluate --task isolation
 
-접수 중·예정·마감·상시·확인 필요를 구분하고 명확히 마감된 정책은 추천에서 제외합니다. 기간이 불명확하거나 예산 소진 조건이 있으면 현재 접수 가능하다고 단정하지 않습니다. 최종 자격, 소득·가구 조건, 연령대 일부만 해당하는 조건은 원문 확인이 필요합니다. 조회 기록은 설정한 `output_dir` 아래 `policies/lookups/`에 확인 시각·원문 해시·조건·오류 종류와 함께 저장합니다. 매 질문마다 새로 검색하며 저장 자료로 실시간 검색을 대체하지 않습니다.
-
-키 누락·검색 실패·일부 원문 실패 시 분석 결과는 계속 제공하며 실패 상태를 알립니다. 저장된 자료는 과거 확인 시각을 붙인 참고 링크로만 표시하며 현재 추천에 섞지 않습니다. 검색 성공 후 결과 없음은 정책 자체가 없다는 뜻이 아닙니다. `policies-refresh`는 기존 강남·춘천 게시판의 수동 사전 수집·점검용으로 유지하지만 추천 전에 실행할 필요는 없습니다. 기존 `policies.max_age_days`는 실시간 추천에 사용하지 않습니다. `references/resources.csv`는 수동 검토 자료로 보존하며 자동 추천에는 연결하지 않습니다.
-
-기본 질의 기능은 로컬 라우터이며, vLLM을 선택하면 LLM 질문 해석과 근거 기반 설명을 사용합니다. ‘이번 달’은 자료상 최신 월입니다. 기상 수집·실시간 웹 검색·자율 개입 실행은 포함하지 않습니다.
-
-## vLLM 연결
-
-이미 실행 중인 vLLM의 Chat Completions API에 연결합니다. 기본 연결값은 `http://localhost:8000/v1`, 모델은 `skt/A.X-4.0`입니다. 이 프로젝트는 클라이언트이므로 vLLM 패키지나 GPU를 로컬에 설치할 필요가 없습니다. 서버에는 해당 모델이 chat template과 함께 제공되어야 하며, `VLLM_MODEL`은 `/v1/models`에 노출되는 이름과 같아야 합니다.
-
-```powershell
-$env:VLLM_BASE_URL = "http://localhost:8000/v1"
-$env:VLLM_MODEL = "skt/A.X-4.0"
-$env:AGENT_BACKEND = "vllm"
-# 서버 인증을 사용하는 경우에만 설정
-# $env:VLLM_API_KEY = "서버 API 키"
-
-.venv/Scripts/python.exe -B -m activity_agent llm-check
-.venv/Scripts/python.exe -B -m activity_agent ask --backend vllm "이번 달 50대 남성 활동 위축과 지원 정책 추천"
-.venv/Scripts/python.exe -B -m activity_agent ask --task isolation --backend vllm "2025년 12월 강남구 고립 의심 근거와 정책 추천"
-.venv/Scripts/python.exe -B -m activity_agent dashboard
+# 활동 위축 후보 및 탐지 근거 조회
+python -B -m activity_agent ask \
+  --task isolation \
+  --backend local \
+  "2025년 12월 강원 50대 남성 활동 위축 근거"
 ```
 
-대시보드 사이드바의 **Agent 응답 방식**에서 `로컬` 또는 `vLLM`을 선택합니다. CLI에서는 `--backend local`로 서버 호출을 끌 수 있습니다. 선택 우선순위는 CLI/화면 선택 → `AGENT_BACKEND` → `VLLM_BASE_URL`이 있으면 vLLM → `config/default.json`의 `agent.backend`입니다. 기본 설정은 local입니다. `.env.example`은 환경변수 예시이며 `.env`를 자동으로 읽지는 않습니다.
+공간 연결에 필요한 자료와 학습된 모델이 사전에 준비되어 있어야 합니다. 
 
-vLLM 실행 흐름은 `질문 → LLM의 조회 조건 JSON → 집계 근거 조회·실시간 정책 검색 → LLM 설명 → 조회 근거 원문 첨부`입니다. 정책 검색 여부는 모델이 결정하지 않습니다. 모델에 임의 코드·SQL·학습·파일 쓰기 도구를 제공하지 않습니다. 질문과 선택된 집계 근거·정책 안내는 설정한 vLLM 서버로 전송됩니다. 확인한 공식 본문도 조건 추출을 위해 vLLM 서버로 전송됩니다. 원본 활동 데이터 전체를 전송하지 않습니다. 모델별 tool-calling parser나 JSON 강제 출력 지원에 의존하지 않고 일반 채팅 응답의 JSON을 검증합니다.
+⠀ 
+### 5.4. LLM 및 실시간 복지정책 검색
 
-vLLM 최종 답변의 템플릿과 문체는 [`activity_agent/llm/prompts/activity_response.md`](activity_agent/llm/prompts/activity_response.md)에서 관리합니다. 요청마다 읽으므로 파일을 수정하면 다음 답변부터 반영되며, 설치 패키지에도 포함됩니다. 기존 근거·수치 검증 원칙을 함께 적용합니다. `ask --backend vllm` 또는 대시보드의 vLLM 모드에서 사용하며, 모델을 호출하지 않는 로컬 모드에는 적용되지 않습니다. 파일을 읽지 못하거나 비어 있으면 실패 진단과 로컬 근거를 표시합니다.
+LLM 기반 자연어 질의와 실시간 복지정책 검색을 위해 vLLM 서버와 Tavily API를 연결합니다.
 
-명시된 월·성별·연령·강남/춘천 지역은 모델이 조회 범위를 넓히지 못하도록 보존하며, CLI/화면 필터가 우선합니다. 지원하지 않는 세부 연령은 기존 안내를 반환합니다. 최종 설명에서 근거에 없는 숫자·URL을 감지하면 정상 답변으로 채택하지 않고 로컬 근거를 표시합니다. 대시보드와 CLI 모두 별도 디버그 설정 없이 실패 단계·조회 근거·생성 답변·추가 감지 숫자·URL을 진단 블록에 표시합니다. 질문 해석 실패와 잘린 응답도 받은 원문을 보존하며, 응답을 받지 못했다면 그 상태를 표시합니다. 진단의 생성 원문은 검증을 통과한 설명이 아닙니다. 이는 모든 의미적 오류를 검증하는 것은 아니므로 원문도 항상 함께 제공합니다. 서버 오류·시간 초과·잘못된 JSON·응답 잘림도 명시하고 로컬 조회로 대체합니다.
+```bash
+# vLLM 서버 설정
+export VLLM_BASE_URL="http://localhost:{포트번호}/v1"
+export VLLM_MODEL="활용할 모델명"
+export AGENT_BACKEND="vllm"
 
-`VLLM_TIMEOUT`(기본 60초, 요청별), `VLLM_MAX_TOKENS`(설명 기본 1200)를 환경변수 또는 `agent` 설정으로 조정할 수 있습니다. 한 질문에는 일반적으로 해석·설명 두 번의 요청이 발생합니다. `llm-check`는 추론 없이 모델 목록과 이름을 확인하는 명령이며 실제 생성 가능 여부를 보장하지는 않습니다. localhost에 접속되지 않으면 로컬 서버 실행 상태와 8000번 포트 접근을 확인하세요.
+# 실시간 정책 검색 API 키 설정
+export TAVILY_API_KEY="YOUR_TAVILY_API_KEY"
 
-## 검토와 지도학습
+# vLLM 연결 확인
+python -B -m activity_agent llm-check
 
-대시보드의 라벨 검토 탭 또는 CLI에서 근거를 남깁니다.
-
-```powershell
-.venv/Scripts/python.exe -m activity_agent review FEATURE_ID --label 1 --reviewer "검토자" --note "현장 확인 자료와 해당 기간의 판단 근거"
+# AI Agent 실행
+python -B -m activity_agent ask \
+  --task isolation \
+  --backend vllm \
+  "2025년 12월 강원 50대 남성 활동 위축과 복지정책 추천"
 ```
 
-`--independent`는 규칙 점수와 독립적인 외부 확인 자료가 있을 때만 사용합니다. 화면 지표를 보고 붙인 라벨을 독립 정답으로 취급하지 마세요. 변경은 덮어쓰기 대신 이력으로 추가합니다. 최신 결정이 이전 결정을 대체하고, 데이터·특징 버전이 바뀌면 과거 검토를 새 버전에 자동 적용하지 않습니다.
+vLLM은 별도로 실행 중인 추론 서버가 필요하며, 다른 서버에서 모델을 제공하는 경우 `VLLM_BASE_URL`을 해당 서버 주소로 변경해야 합니다.
 
-```powershell
-.venv/Scripts/python.exe -m activity_agent train --signal mobility --source weak --train-end 202510 --validation-month 202511 --test-month 202512
-.venv/Scripts/python.exe -m activity_agent evaluate
+
+⠀ 
+### 5.5. Streamlit 대시보드
+
+```bash
+python -B -m activity_agent dashboard
 ```
 
-- 첫 모델은 결측 대체·표준화·로지스틱 회귀 파이프라인입니다. 변환은 학습 기간에만 적합합니다. 특징은 명시적 허용 목록으로 제한하고 라벨·검토 텍스트·사후 정보는 제외합니다.
-- 기본 학습은 약한 라벨 실험입니다. `--source reviewed`로 최신 검토 라벨만 사용할 수 있습니다. 양·음성 또는 검증·평가 표본이 부족하면 학습을 중단하고 라벨을 임의로 채우지 않습니다.
-- 같은 월의 그룹을 무작위로 나누지 않습니다. `--holdout-region "지역명"`은 해당 지역을 학습·검증에서 제외하고 테스트에서 지역 외삽 성능을 별도로 보고합니다. 유동 분석에는 검증된 매핑이 필요합니다.
-- `model_evaluation.json`은 **약한 라벨 일치도**와 **독립 검토 라벨 성능**을 구분합니다. 독립 정답이 없으면 평가 행 수 0으로 보고합니다. 정밀도·재현율·PR-AUC(AP)·상위 20개 적중률과 규칙 기준선을 제공합니다. 단일 클래스에서는 AUC를 산출하지 않습니다.
-- 모델은 자동 활성화되지 않습니다. 검토 후 `detector`를 `supervised`로 바꾸고 `detect`와 `report`를 실행하세요. 모델이 지원하지 않는 신호와 학습 종료 월까지의 과거 결과는 규칙 엔진을 유지하며 각 행의 엔진·버전을 표시합니다. 미래 자료로 학습한 모델을 과거 월에 적용하지 않습니다.
-- 모델 pickle은 로컬에서 직접 생성한 신뢰할 수 있는 파일만 사용하세요. 규칙 라벨 학습 모델의 출력도 고립 확률이 아닙니다.
+기본 접속 주소는 `http://localhost:8501`입니다.
 
-## 주요 산출물
+원격 Linux 서버에서 실행할 경우 로컬 PC에서 SSH 포트 포워딩을 설정한 뒤 브라우저로 접속할 수 있습니다.
 
-| 위치 | 내용 |
-| --- | --- |
-| `artifacts/quality.json`, `quarantine/` | 원본 SHA256, 행 수·총합·중복·오류·가용 범위 |
-| `artifacts/clean/` | 정제 SKT 월별 좌표, 카드1·2 별도 집계 |
-| `artifacts/features.parquet` | 분석 키, 공통·전체 좌표 특징, 품질, 버전 |
-| `artifacts/detections.parquet` | 점수, 상태, 엔진, 근거 지표 |
-| `artifacts/weak_labels.parquet`, `combined_labels.parquet` | 약한 라벨과 시군구 통합 라벨 |
-| `artifacts/reviews.sqlite3` | 자동 라벨 스냅샷과 추가형 검토 이력 |
-| `artifacts/threshold_sensitivity.parquet` | 임계값 15·20·25·30%에서 후보 수와 일치도 |
-| `artifacts/REPORT.md`, `run_manifest.json` | 결과 요약, 한계, 실행 설정 |
-| `artifacts/models/`, `model_evaluation.json` | 모델·메타데이터와 평가 결과 |
+```bash
+# 로컬 PC 터미널에서 실행
+ssh -L 8501:localhost:8501 USER@SERVER_IP
+```
 
-소스는 역할별 패키지로 구분합니다. 공통 코드가 특정 분석 과제에 의존하지 않으며, 수치 계산은 질의 기능과 분리됩니다.
+대시보드에서는 활동 위축 탐지 결과, 후보별 상세 근거, 복지정책 조회 및 Agent 질의응답을 확인할 수 있습니다.
+
+⠀ 
+### 5.6. 모델 비교 실험 및 HTML 결과
+
+```bash
+# 특징량 Ablation, 모델 비교, 합성 이상 주입 실험
+python -B -m activity_agent experiment --suite all
+
+# 테스트 실행
+python -B -m pytest -q
+```
+
+실험 결과는 다음 디렉터리에 저장됩니다.
+
+```text
+artifacts/isolation/experiments/<run_id>/index.html
+```
+
+생성된 HTML 리포트에서는 특징량 Ablation, 비지도 모델 비교, Synthetic Anomaly Injection 및 지역과 시간별 진단 결과를 확인할 수 있습니다.
+
+⠀ ⠀ 
+## 6. 프로젝트 구조
 
 ```text
 activity_agent/
-  common/       # 설정·저장·평가·표시 공통 기능
-  data/         # 원자료 정제·공통 좌표 집계
-  activity/     # 활동 특징·탐지·라벨·학습·조회·보고서
-  isolation/    # 구조 통계·표본·고립 라벨·학습·조회
-  policies/     # 지자체 공식 정책 수집·후보 조회
-  llm/          # vLLM 통신·질문 해석·근거 기반 설명
-  ui/           # 대시보드 진입점과 과제별 화면
-  cli.py        # 명령행 진입점
-app.py          # Streamlit 실행용 진입점
+├── common/       # 설정·평가·저장
+├── data/         # 원자료 정제·집계
+├── activity/     # 일반 활동 분석
+├── isolation/    # 비지도 이상탐지·확장 실험
+├── policies/     # 공식 복지정책 검색·검증
+├── llm/          # vLLM 연동 및 설명 생성
+├── ui/           # 대시보드
+└── cli.py
+config/default.json
+references/
+artifacts/
 ```
 
-기존 CLI 명령과 `app.py` 실행법은 동일합니다. Python 내부 모듈 경로는 위 패키지 구조를 사용합니다. `candidate_export.parquet` 같은 전체 결과 복사본은 생성하지 않고, 대시보드에서 필요할 때 선택 결과를 CSV로 다운로드합니다. `__pycache__`, pytest 캐시와 실패한 임시 폴더는 실행 산출물이 아니며 보관하지 않습니다.
+| 산출물 | 설명 |
+|---|---|
+| `artifacts/clean/`, `artifacts/quality.json` | 정제 데이터와 원자료 품질 점검 |
+| `artifacts/features.parquet` | 지역·집단별 활동 특징량 |
+| `artifacts/isolation/anomaly/` | 비지도 탐지 점수, 후보, 품질·판정 근거 |
+| `activity_agent/model/experiments/<run_id>/IF_F2.pkl` | 선택된 IF_F2 모델 파일(모델 경로는 설정 참조) |
+| `artifacts/isolation/experiments/<run_id>/index.html` | 모델·특징량 비교 실험의 HTML 리포트 |
+| `artifacts/policies/lookups/` | 검색·검증된 정책 근거와 조회 기록 |
+| `artifacts/reviews.sqlite3` | 검토 및 라벨 변경 이력 |
 
-## 좌표로 시도 연결 후보 확인
+⚠️ 원자료, 모델 실행 산출물, 개인 API 키 및 가상환경 파일은 저장소에 포함하지 않도록 관리합니다.
 
-공식 [SGIS 2025년 행정구역 경계](https://www.data.go.kr/data/15129688/fileData.do)의 시도 SHP·SHX·DBF·PRJ·CPG 파일을 같은 폴더에 둔 뒤 실행합니다.
+⠀ ⠀ 
+--
+📄**상세 기술 문서**
 
-```powershell
-.venv/Scripts/python.exe -B -m activity_agent spatial-audit --boundary-file data/boundaries/sido_2025/bnd_sido_00_2025_2Q.shp
-```
+- [모델 실험 및 평가](docs/anomaly-experiments.md)
+- [IF_F2 실행 가이드](docs/f2-deployment.md)
+- [정책 검색·추천 설계](docs/policy-recommendation.md)
+- [Agent 근거 데이터 계약](docs/agent-evidence.md)
+- [비지도 탐지 모델 상세](docs/activity-anomaly-model.md)
 
-정제 SKT의 모든 월·자료 유형에서 고유 좌표를 모아 UTM-K 후보 EPSG:5179와 EPSG:5178 각각으로 시도 경계에 대조합니다. 동일 `BLOCK_CD`의 모든 좌표가 두 후보에서 같은 시도로 판정될 때만 연결 후보를 만듭니다. 경계 중첩·시도 불일치·미포함 점이 있는 소지역은 보류합니다. 대표 좌표의 평균이나 코드 앞자리로 확정하지 않습니다. `artifacts/isolation/spatial_audit.json`, `spatial_coordinates.parquet`, `block_geography_candidates.csv`에 결과를 기록합니다. 원본 좌표계의 측지계는 여전히 미확인이므로 후보 CSV는 `verified=false`이며 기존 검증 매핑을 덮어쓰지 않습니다.
-
-현재 서울·강원 실험은 `mapping_mode=crs_consensus`를 명시해 이 후보 중 `candidate_crs_agree`이고 `region_codes=["11","32"]`인 소지역만 사용합니다. 경기도와 판정 보류 소지역은 집계·라벨·학습·평가에서 제외됩니다. 감사 보고서의 후보 파일·정제 목록 해시를 검사하므로 파일이 변경되면 `spatial-audit`부터 다시 실행해야 합니다. `spatial_selection.json`에는 실제 선택·제외 개수가 기록됩니다. 원본 좌표계가 검증됐다고 표시하는 설정은 아닙니다. 기본 검증 매핑을 쓰려면 `mapping_mode=verified`, `block_mapping_file=references/block_geography.csv`로 변경합니다.
-
-## 구조 통계 기반 고립 의심 확장 파이프라인
-
-모델 비교·특징량 Ablation·합성 주입·지역/시간 진단과 독립 오프라인 HTML 리포트는 `python -B -m activity_agent experiment --suite all`로 실행합니다. 기존 운영 모델을 보존하며 `artifacts/isolation/experiments/<run_id>/index.html`이 진입점입니다. [실험 방법·실제 결과·재현 명령](docs/anomaly-experiments.md)을 참고하세요.
-
-현재 운영 선택은 **`IF_F2`**입니다. `config/default.json`의 `isolation.model_id`와 `isolation.model_path`로 선택하며, 저장된 실험 모델의 8개 입력 특징·정규화·보정 임계값을 유지합니다. **`detect --task isolation`으로 적용**하며, [F2 실행 순서와 필수 자료](docs/f2-deployment.md)를 참고하세요. `train --task isolation`으로 기존 모델을 덮어쓰지 않습니다.
-
-기존 Baseline 방법은 **서울·강원 소지역 활동의 비지도 이상 탐지(`isolation.method=isolation_forest`, `isolation.model_id=IF_BASELINE`)**입니다. `run-isolation` 또는 `train --task isolation`으로 Isolation Forest를 학습하고 이후 월의 활동 위축 후보를 산출합니다. 양성·음성 라벨 없이 학습하며, 시도 1인가구 통계는 모델 입력에 넣지 않고 설명용 맥락으로만 연결합니다. `readiness`, `evaluate --task isolation`, `detect --task isolation`, `ask --task isolation`과 대시보드의 고립 의심 화면도 이 방법에 연결됩니다. [비지도 학습 결과·평가 범위·실행법](docs/activity-anomaly-model.md)을 참고하세요.
-
-Baseline 모델과 메타데이터는 `activity_agent/model/isolation_forest.pkl`, `activity_agent/model/isolation_forest.json`에 보존합니다. 현재 F2는 `activity_agent/model/experiments/20261021T110042016328Z/IF_F2.pkl`과 동명 JSON을 읽습니다. 실험 비교 모델은 `activity_agent/model/experiments/<run_id>/`에 실험 ID 이름으로 저장합니다. 탐지 결과와 HTML 리포트는 기존 `artifacts/`에 보관합니다.
-
-LLM agent용 구조화 JSON은 `python -m activity_agent agent-evidence --month 202512 --region 11 --limit 10`으로 조회합니다. Python 조회 도구와 vLLM 자동 전달 방식은 [agent 전달 계약](docs/agent-evidence.md)을 참고하세요.
-
-
-지도학습 실험은 `isolation.method=supervised`로 선택할 수 있습니다. 아래 약한 라벨과 양성·음성 학습 준비 조건 설명은 그 실험에 해당합니다. 비지도 결과는 `artifacts/isolation/anomaly/`에 별도 저장하며 기존 라벨 분류 모델을 덮어쓰지 않습니다.
-
-서울·강원 합계에 가려진 소지역 위축은 `python -B -m activity_agent explore-contraction`으로 탐색합니다. 기존 라벨·모델·임계값을 바꾸지 않고 같은 소지역의 단일·지속 위축 비중, 유동량 가중 비중, 소량 유동 민감도, 분할별 규칙 후보 수를 `artifacts/isolation/exploration/`에 저장합니다. 실행 전 현재 설정의 고립 라벨을 준비해야 합니다. [실제 탐색 결과와 학습 가능성 판단](docs/contraction-exploration.md)을 참고하세요.
-
-새 과제 `regional_isolation_suspicion_v1`은 기존 활동 라벨·모델과 분리됩니다. 코드는 `isolation/structural.py`(외부 통계 정제), `isolation/cohorts.py`(공간·연령·시점 결합), `isolation/labeling.py`(학습 기준·라벨·검토), `isolation/training.py`(준비 상태·학습·평가)에 있습니다. 상세 기준은 [설계 문서](docs/isolation-labeling-training-design.md)를 참고하세요.
-
-```powershell
-# 기존 SKT·카드 정제와 특징이 준비되어 있어야 합니다.
-.venv/Scripts/python.exe -m activity_agent run-isolation
-
-# 단계별 실행
-.venv/Scripts/python.exe -m activity_agent structural
-.venv/Scripts/python.exe -m activity_agent cohorts
-.venv/Scripts/python.exe -m activity_agent label --task isolation
-.venv/Scripts/python.exe -m activity_agent readiness
-.venv/Scripts/python.exe -m activity_agent train --task isolation
-.venv/Scripts/python.exe -m activity_agent evaluate --task isolation
-.venv/Scripts/python.exe -m activity_agent detect --task isolation
-.venv/Scripts/python.exe -m activity_agent ask --task isolation "2025년 12월 50대 남성 고립 의심 근거"
-```
-
-`run-isolation`은 정제·결합·라벨·준비 상태를 기록하고, 준비 조건이 충족된 경우에만 별도 모델을 학습합니다. 조건 미충족은 보고서에 남기며 임의 라벨을 만들지 않습니다. 직접 실행한 `train --task isolation`은 조건이 부족하면 종료 코드 2로 중단하고 기존 모델을 보존합니다. 학습은 자동 활성화되지 않으며 `detect --task isolation`을 명시적으로 실행하면 학습 종료 월 이후의 적용 가능한 표본에만 점수를 저장합니다. 대시보드 사이드바의 **분석 과제 → 고립 의심**에서 준비 상태·라벨 근거·검토·질의를 확인할 수 있습니다.
-
-추가 참조표는 다음 세 개입니다. 검증되지 않은 지역 코드나 예시 프로그램을 실제 자료로 넣지 않았습니다.
-
-| 참조표 | 필수 내용 |
-| --- | --- |
-| `references/geography.csv` | `geo_level,geo_code,province,district,dong,parent_code,reference_year,source_url,verified` |
-| `references/block_geography.csv` | `block_code,geo_level,geo_code,reference_year,source_url,verified` |
-| `references/structural_sources.csv` | `source_id,path,reference_period,available_at,url` |
-
-지리 코드표와 `mapping_mode=verified`의 소지역 매핑은 HTTPS 출처와 `verified=true`가 있는 고유한 코드 연결만 사용합니다. 위의 `crs_consensus`는 명시적으로 선택하는 별도 실험 모드입니다. 행정동은 평가 그룹을 구성할 수 있도록 상위 시군구 코드도 등록해야 합니다. 현재 성·연령별 1인가구 CSV는 시도 수준만 선택되어 있어, 정확히 대응하는 시군구/행정동 표본을 라벨링하려면 해당 지역을 선택한 자료가 필요합니다. 코드가 연결되지 않은 자료는 원본 지역명과 품질을 보존하되 해당 집단의 구조 근거로 사용하지 않습니다.
-
-기본값은 **서울·강원 한정, 시도 단위(`sido`), 2025년 사후 분석(retrospective)**입니다. `config/default.json`의 `isolation` 설정에서 `region_codes`·공간 단위(`sido`/`sigungu`/`dong`)·시간 모드·학습/평가 월을 변경하세요. 서울 `11`과 강원 `32`는 이 SGIS 경계의 코드 체계입니다. 서로 다른 공간 단위는 한 모델에 섞지 않습니다. 원본 참조표의 `reference_period`는 네 자리 기준 연도, 확인된 `available_at`은 `YYYY-MM-DD`로 입력합니다. 공표일을 연도만으로 입력해 연초에 공개된 것처럼 처리하지 않습니다. `as_of`는 구조 통계의 공표일이 판정 시점 이전이고 기준 기간도 종료된 경우에만 사용합니다. 공표일을 모르면 배제합니다. `retrospective`에서 연간 통계를 사용한 월별 평가는 당시 실시간 예측의 성능이 아닙니다.
-
-시도 실행에서는 `geography.csv`에 `geo_level=sido`, 시도 코드·정식 시도명·기준 연도·출처를 등록하고 `district,dong,parent_code`는 비워 둡니다. `block_geography.csv`는 SKT 소지역을 같은 시도 코드에 연결합니다. 소지역 코드 앞자리를 임의로 행정구역 코드로 간주하거나 검증 없이 `verified=true`로 채우지 않습니다. 매핑된 관측 격자를 시도별로 합산하되 두 이전 월과의 공통 격자·커버리지 검사를 유지합니다. 부분 지역만 관측한 경우 시도 전체를 대표한다고 해석할 수 없습니다. 강남·춘천 카드 관측은 시도 전체 소비로 합산하지 않으며, 시도 모델의 B는 해당 시도에 연결된 낮·주말 유동 근거를 사용합니다.
-
-새 라벨은 A(집단 유동), S(구조적 취약성), B(활동 보조)의 상태를 저장합니다. A·B는 두 연속 비교를 사용합니다. S는 같은 공간·성·연령의 **전체 1인가구 중 해당 집단 구성비**를 같은 집단의 다른 지역과 비교합니다. 인구 대비 1인가구 비율이 아닙니다. 학습 자료에서만 75% 분위수 기준을 적합하며, 연간 값을 여러 월에 연결해도 한 번만 기준 분포에 반영합니다. 서울·강원 한정 실험은 최소 참조 지역과 최소 학습 지역을 각각 2개로 설정합니다. S는 두 시도의 상대 비교이며 전국 상위 25%나 통계적 충분성을 의미하지 않습니다. 월·성·연령 행을 늘려 지역 수를 채우지 않습니다. 20% 위축·10% 안정 기준은 유지하고 양성 라벨을 만들기 위해 임의 변경하지 않습니다.
-
-평가는 2025년 10월까지 학습 / 11월 검증 / 12월 테스트로, 같은 두 시도의 이후 월을 평가합니다. 다른 지역으로의 일반화 성능으로 보고하지 않습니다. 지역별 지표와 학습 범위는 모델·평가 파일에 기록되며 범위 밖 지역에는 점수를 산출하지 않습니다. 현재 실제 데이터 실행 결과는 [서울·강원 학습 상태](docs/sido-training-status.md)를 참고하세요.
-
-- A·S·B가 support이면 `1 / 고립 의심`입니다.
-- A가 안정적이고 구조 근거를 판정할 수 있으며 관측된 B가 모두 안정적이면 `0 / 의심 근거 미약`입니다. 고립 부재 확인이 아닙니다.
-- 나머지는 `-1 / 판단 보류`이며 학습 음성으로 바꾸지 않습니다.
-- 카드 부재는 0이 아닙니다. 카드 없는 지역도 같은 지역 전체의 낮·주말 자료로 B를 구성할 수 있습니다.
-- 65세 이상 통계는 SKT 60세 이상 집단의 정확한 S가 아니며 `_context` 열에만 남깁니다. `20세 미만`을 10대로 임의 분할하지 않습니다.
-- **2024년 고독사 수·발생률은 라벨 규칙과 모델 입력에서 모두 제외**하고 별도 배경 설명으로만 조회합니다. 이 자료를 바꾸어도 라벨·학습 특징이 바뀌지 않도록 검증합니다.
-
-검토도 새 과제의 버전에 연결됩니다.
-
-```powershell
-.venv/Scripts/python.exe -m activity_agent review COHORT_ID --task isolation --label 1 --reviewer "검토자" --note "확인 근거"
-.venv/Scripts/python.exe -m activity_agent train --task isolation --source reviewed
-```
-
-SQLite의 기존 활동 테이블은 유지하고 `label_sets`, `label_decisions`, `label_reviews`를 추가합니다. 라벨·검토는 과제·표본·특징 버전·라벨 버전별로 식별합니다. 독립 외부 확인이 있을 때만 `--independent`를 사용하며, 최신 판단 보류나 비독립 검토가 이전 독립 검토를 대체하면 독립 평가에서도 제외합니다.
-
-새 모델은 명시적 숫자·범주 특징만 사용합니다. 지역 코드, 고독사 지표, 라벨 결과와 검토 텍스트를 입력하지 않습니다. 결측 대체·표준화·범주 인코딩은 학습 자료에서만 적합합니다. 라벨 구성 원지표를 학습에 쓰므로 기본 성능은 규칙 재현 실험이며, 독립 확인 정답의 성능은 따로 보고합니다. `holdout_regions`에 시도 모드에서는 시도 코드, 시군구·행정동 모드에서는 시군구 코드를 지정합니다. 해당 지역을 라벨 기준 적합·모델 학습·검증에서 제외하고 테스트에 별도로 평가합니다. 기존 `holdout_districts` 설정도 읽을 수 있지만 두 설정이 충돌하면 중단합니다. 분할 설정을 바꾸면 라벨부터 다시 생성해야 합니다.
-
-준비·평가 보고서의 `evaluation_region_level`, `independent_evaluation_regions`와 모델의 `training_regions`, `holdout_regions`로 지역 단위를 확인할 수 있습니다. 기존 저장 형식과의 호환을 위한 `district_code`, `independent_districts`, `training_districts`, `holdout_districts`는 시도 모드에서 시도 평가 그룹을 뜻합니다.
-
-산출물은 `artifacts/isolation/`에 저장합니다: `structural.parquet`, `structural_quality.json`, `cohorts.parquet`, `cohort_manifest.json`, `readiness.json`, `labels.parquet`, `label_reference.json`, `label_summary.json`, `models/logistic.pkl`, `models/logistic.json`, `evaluation.json`, `detections.parquet`. 원자료로 학습할 수 없는 경우에도 준비 상태와 부족한 근거를 확인할 수 있습니다.
+🧑‍🤝‍🧑**본 프로젝트는 사회고립을 단정하기보다, 활동 위축의 근거를 제시하고 적절한 후속 확인과 공공 지원을 돕는 AI 시스템을 지향합니다.**🌱
